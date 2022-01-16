@@ -19,7 +19,6 @@ SAMPLES = 5
 MAX_SSH_SESSION_AGE = 21600 #6h in seconds
 
 def isSSHSessionActive():
-    logging.info(f'who: {getoutput("who")}-----')
     whoPattern = re.compile('(?P<userName>[^ ]+)\\s+(?P<session>[^ ]+)\\s+(?P<time>[^ ]+ [^ ]+)\\s+(?P<comment>.*)')
     whoOutput = getoutput('who')
 
