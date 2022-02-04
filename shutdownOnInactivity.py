@@ -8,9 +8,6 @@ import re
 import dateutil.parser
 from datetime import datetime
 
-logFile = os.path.join('/var', 'log', 'shutdownOnNetworkInteractivity.log')
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO, handlers=[logging.FileHandler(logFile), logging.StreamHandler(sys.stdout)])
-
 INTERVAL = 2
 LONG_INTERVAL = 300
 INTERFACE = 'enp1s0'
@@ -66,12 +63,21 @@ def isNetworkActive():
     return averageSpeed > MINIMUM_SPEED
 
 
-def worker ():
+def worker(configFile):
     while True:
         try:
             time.sleep(LONG_INTERVAL)
+           
+            #Check configuration 
+            if configFile not is None:
+                config = configparser.ConfigParser()
+                config.read_file(open(configFile))
+                isEnabled = config.get('shutdownOnInactivity', 'enabled') == 'True'
+            else:
+                isEnabled = True
 
-            if not isSSHSessionActive() and not isNetworkActive():
+            #Check inactivity
+            if isEnabled and not isSSHSessionActive() and not isNetworkActive():
                 logging.info('Shutting down...')
                 os.system("sudo shutdown 0")
                 time.sleep(LONG_INTERVAL) 
@@ -83,5 +89,19 @@ def worker ():
             time.sleep(LONG_INTERVAL)
 
 if __name__ == "__main__":
+    logFile = os.path.join('/var', 'log', 'shutdownOnInteractivity.log')
+
+    #Command-line arguments
+    if len(sys.argv) > 0:
+        configFile = sys.argv[0] 
+
+        config = configparser.ConfigParser()
+        config.read_file(open(configFile))
+        logFilePath = config.get('shutdownOnInactivity', 'logFilePath')
+        
+    logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
+            
+
     logging.info('Starting...')
-    worker()
+
+    worker(configFile)
