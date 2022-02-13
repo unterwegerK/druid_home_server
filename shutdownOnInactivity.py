@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #starting point taken from https://askubuntu.com/questions/105536/tool-to-shutdown-system-when-there-is-no-network-traffic
 
-import os, time, sys
+import configparser, os, time, sys
 import logging
 from subprocess import getoutput
 import re
@@ -69,7 +69,7 @@ def worker(configFile):
             time.sleep(LONG_INTERVAL)
            
             #Check configuration 
-            if configFile not is None:
+            if configFile is not None:
                 config = configparser.ConfigParser()
                 config.read_file(open(configFile))
                 isEnabled = config.get('shutdownOnInactivity', 'enabled') == 'True'
@@ -89,15 +89,15 @@ def worker(configFile):
             time.sleep(LONG_INTERVAL)
 
 if __name__ == "__main__":
-    logFile = os.path.join('/var', 'log', 'shutdownOnInteractivity.log')
+    logFilePath = os.path.join('/var', 'log', 'shutdownOnInteractivity.log')
 
     #Command-line arguments
-    if len(sys.argv) > 0:
-        configFile = sys.argv[0] 
+    if len(sys.argv) > 1:
+        configFile = sys.argv[1] 
 
         config = configparser.ConfigParser()
         config.read_file(open(configFile))
-        logFilePath = config.get('shutdownOnInactivity', 'logFilePath')
+        logFilePath = config.get('shutdownOnInactivity', 'logFilePath', fallback=logFilePath)
         
     logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
             
