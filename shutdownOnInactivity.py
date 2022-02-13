@@ -63,7 +63,7 @@ def isNetworkActive():
     return averageSpeed > MINIMUM_SPEED
 
 
-def worker(configFile):
+def worker(configFilePath):
     while True:
         try:
             time.sleep(LONG_INTERVAL)
@@ -71,7 +71,8 @@ def worker(configFile):
             #Check configuration 
             if configFile is not None:
                 config = configparser.ConfigParser()
-                config.read_file(open(configFile))
+                with(open(configFilePath, 'r') as configFile:
+                    config.read_file(open(configFile))
                 isEnabled = config.get('shutdownOnInactivity', 'enabled') == 'True'
             else:
                 isEnabled = True
