@@ -69,10 +69,10 @@ def worker(configFilePath):
             time.sleep(LONG_INTERVAL)
            
             #Check configuration 
-            if configFile is not None:
+            if configFilePath is not None:
                 config = configparser.ConfigParser()
-                with(open(configFilePath, 'r') as configFile:
-                    config.read_file(open(configFile))
+                with open(configFilePath, 'r') as configFile:
+                    config.read_file(configFile)
                 isEnabled = config.get('shutdownOnInactivity', 'enabled') == 'True'
             else:
                 isEnabled = True
@@ -94,10 +94,11 @@ if __name__ == "__main__":
 
     #Command-line arguments
     if len(sys.argv) > 1:
-        configFile = sys.argv[1] 
+        configFilePath = sys.argv[1] 
 
         config = configparser.ConfigParser()
-        config.read_file(open(configFile))
+        with open(configFilePath) as configFile:
+            config.read_file(configFile)
         logFilePath = config.get('shutdownOnInactivity', 'logFilePath', fallback=logFilePath)
         
     logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
@@ -105,4 +106,4 @@ if __name__ == "__main__":
 
     logging.info('Starting...')
 
-    worker(configFile)
+    worker(configFilePath)
