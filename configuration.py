@@ -33,6 +33,10 @@ class Configuration:
     def get(self, section, key, fallback):
         return self.configParser.get(section, key, fallback=fallback)
 
+    def getint(self, section, key, fallback):
+        value = self.configParser.get(section, key, fallback=None)
+        return fallback if value is None else value
+
     def set(self, section, key, value):
         self.configParser.set(section, key, value)
 

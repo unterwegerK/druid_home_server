@@ -3,6 +3,8 @@ import unittest
 import configuration
 import os
 from os.path import exists
+from datetime import datetime, timedelta
+import periodicStatusReport
 
 class TestConfigFile:
 
@@ -51,5 +53,56 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertTrue(any('key2 = Value2' in line for line in lines))
 
 
+class TestConfiguration:
+    def __init__(self, keyValuePairs):
+       self.keyValuePairs = keyValuePairs
+    
+    def get(self, section, key, fallback):
+        key = f'{section}|{key}'
+        if key in self.keyValuePairs:
+            return self.keyValuePairs[key]
+        return fallback
+
+    def getint(self, section, key, fallback):
+        value = self.get(section, key, None)
+        return fallback if value is None else value
+
+    def set(self, section, key, value):
+        key = f'{section}|{key}'
+        self.keyValuePairs[key] = value
+
+
+
+class PeriodicStatusReportTests(unittest.TestCase):
+    def testNoLoggingIfIntervalNotYetOver(self):
+        keyValuePairs = {}
+        timestamp = datetime.now() - timedelta(hours=23)
+        timestampString = timestamp.strftime('%y-%m-%d %H:%M:%S')
+        keyValuePairs['periodicStatusReport|lastReport'] = timestampString
+        
+        config = TestConfiguration(keyValuePairs)
+
+        report = periodicStatusReport.getServerStatus(config)
+
+        self.assertIsNone(report)
+        self.assertEqual(config.get('periodicStatusReport', 'lastReport', None), timestampString)
+
+    def testLoggingIfIntervalIsOver(self):
+        timeFormat = '%y-%m-%d %H:%M:%S'
+        keyValuePairs = {}
+        timestamp = datetime.now() - timedelta(hours=25)
+        timestampString = timestamp.strftime(timeFormat)
+        keyValuePairs['periodicStatusReport|lastReport'] = timestampString
+        
+        config = TestConfiguration(keyValuePairs)
+
+        report = periodicStatusReport.getServerStatus(config)
+
+        self.assertIs(type(report), str)
+        newTimestamp = datetime.strptime(config.get('periodicStatusReport', 'lastReport', None), timeFormat)
+
+        self.assertTrue((datetime.now() - newTimestamp).total_seconds() < 10)
+
 if __name__ == '__main__':
     unittest.main()
+

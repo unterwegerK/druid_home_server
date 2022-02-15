@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-#Sends e-mail with boot log once a day
-import configparser
+#base for a cronjob that runs continously and performs regular actions
+from configuration import Configuration
+import emailNotification
 import logging
 from os import path
 import sys
+import shutdownOnInactivity
+import time
 
 ITERATION_INTERVAL = 300
 
@@ -14,13 +17,12 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         configFile = sys.argv[1]
     else:
-        raise Exception("Config-file path required.")
+        raise Exception('Config-file path required.')
 
-    config = configparser.ConfigParser()
-    config.read_file(open(configFile))
-    logFilePath = config.get(scriptName, 'logFilePath')
+    with Configuration(configFile) as config:
+        logFilePath = config.get(scriptName, 'logFilePath', f'/var/log/{scriptName}.log')
 
-    logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
+    logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
 
     logging.info('Starting...')
 
@@ -28,11 +30,17 @@ if __name__ == '__main__':
         try:
             time.sleep(ITERATION_INTERVAL)
 
-            #backup
-            #scrubbing
-            #send e-mail
+            with Configuration(configFile) as config:
+                if config.isValid():
+                    notifications = []
+                    #backup
+                    #scrubbing
+                    #daily notification
 
-            shutdownOnInactivity.worker(configfile)
+                    if len(notifications) > 0:
+                        emailNotification.sendMail(config, notifications)
+
+                    shutdownOnInactivity.worker(config)
 
         except Exception as e:
             logging.error(f'Error occurred: {e}')
