@@ -62,48 +62,12 @@ def isNetworkActive():
     # If average speed is below minimum speed - suspend
     return averageSpeed > MINIMUM_SPEED
 
-
-def worker(configFilePath):
-    while True:
-        try:
-            time.sleep(LONG_INTERVAL)
-           
-            #Check configuration 
-            if configFilePath is not None:
-                config = configparser.ConfigParser()
-                with open(configFilePath, 'r') as configFile:
-                    config.read_file(configFile)
-                isEnabled = config.get('shutdownOnInactivity', 'enabled') == 'True'
-            else:
-                isEnabled = True
+def shutdownOnInactivity(config):
+            isEnabled = config.getboolean('shutdownOnInactivity', 'enabled', True)
 
             #Check inactivity
             if isEnabled and not isSSHSessionActive() and not isNetworkActive():
                 logging.info('Shutting down...')
                 os.system("sudo shutdown 0")
                 time.sleep(LONG_INTERVAL) 
-            # Else reset calculations and wait for longer to retry calculation
-            else:
-                time.sleep(LONG_INTERVAL)
-        except Exception as e:
-            logging.error(f"Error occurred: {e}")
-            time.sleep(LONG_INTERVAL)
 
-if __name__ == "__main__":
-    logFilePath = os.path.join('/var', 'log', 'shutdownOnInteractivity.log')
-
-    #Command-line arguments
-    if len(sys.argv) > 1:
-        configFilePath = sys.argv[1] 
-
-        config = configparser.ConfigParser()
-        with open(configFilePath) as configFile:
-            config.read_file(configFile)
-        logFilePath = config.get('shutdownOnInactivity', 'logFilePath', fallback=logFilePath)
-        
-    logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
-            
-
-    logging.info('Starting...')
-
-    worker(configFilePath)

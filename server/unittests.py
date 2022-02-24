@@ -6,6 +6,8 @@ from os.path import exists
 from datetime import datetime, timedelta
 import periodicStatusReport
 
+from tests import testConfiguration
+
 class TestConfigFile:
 
     def __init__(self, fileName):
@@ -13,7 +15,7 @@ class TestConfigFile:
 
     def __enter__(self):
         with open(self.fileName, 'w') as f:
-            f.write('[Section0]\nKey0=Value0\nKey1=Value1\n\n[Section1]\nKey2=Value2\n')
+            f.write('[Section0]\nKey0=Value0\nKey1=Value1\n\n[Section1]\nKey2=Value2\n[Section2]\nKey3=5\nKey4=True')
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
@@ -52,6 +54,33 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertTrue(any('[Section1]' in line for line in lines))
                 self.assertTrue(any('key2 = Value2' in line for line in lines))
 
+    def testFallbackOnUnkownSection(self):
+        with TestConfigFile('./config.ini') as iniFile:
+            with configuration.Configuration(iniFile.fileName) as testee:
+                value = testee.get('UnknownSection', 'Key1', 'Fallback')
+                self.assertEqual(value, 'Fallback')
+
+    def testCreationOfUnknownSection(self):
+        with TestConfigFile('./config.ini') as iniFile:
+            with configuration.Configuration(iniFile.fileName) as testee:
+                testee.set('UnknownSection', 'Key1', 'Value')
+                value = testee.get('UnknownSection', 'Key1', None)
+                self.assertEqual(value, 'Value')
+
+    def testConvenienceGetter(self):
+        with TestConfigFile('./config.ini') as iniFile:
+            with configuration.Configuration(iniFile.fileName) as testee:
+                i = testee.getint('Section2', 'Key3', None)
+                self.assertEqual(i, 5)
+
+                i = testee.getint('Section2', 'UnknownKey', 7)
+                self.assertEqual(i, 7)
+
+                b = testee.getboolean('Section2', 'Key4', None)
+                self.assertTrue(b)
+
+                b = testee.getboolean('Section2', 'UnknownKey', False)
+                self.assertFalse(b)
 
 class TestConfiguration:
     def __init__(self, keyValuePairs):
@@ -77,7 +106,7 @@ class PeriodicStatusReportTests(unittest.TestCase):
     def testNoLoggingIfIntervalNotYetOver(self):
         keyValuePairs = {}
         timestamp = datetime.now() - timedelta(hours=23)
-        timestampString = timestamp.strftime('%y-%m-%d %H:%M:%S')
+        timestampString = timestamp.strftime('%Y-%m-%d %H:%M:%S')
         keyValuePairs['periodicStatusReport|lastReport'] = timestampString
         
         config = TestConfiguration(keyValuePairs)
@@ -88,7 +117,7 @@ class PeriodicStatusReportTests(unittest.TestCase):
         self.assertEqual(config.get('periodicStatusReport', 'lastReport', None), timestampString)
 
     def testLoggingIfIntervalIsOver(self):
-        timeFormat = '%y-%m-%d %H:%M:%S'
+        timeFormat = '%Y-%m-%d %H:%M:%S'
         keyValuePairs = {}
         timestamp = datetime.now() - timedelta(hours=25)
         timestampString = timestamp.strftime(timeFormat)
