@@ -17,8 +17,6 @@ def getServerStatus(config, getCurrentTime=datetime.now):
 
     timeSinceLastReport = now - lastReportTimestamp
 
-    logging.info(f'Time since last report ({lastReportTimestamp}): {timeSinceLastReport.total_seconds()}s')
-    
     if timeSinceLastReport.total_seconds() >= interval:
         rebootHeader = 'The following reboot times have been logged:'
         reboots = getoutput('last -x reboot | head -n 8 | cut -d " " -f 1,8-')

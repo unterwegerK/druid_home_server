@@ -1,5 +1,22 @@
 from configparser import ConfigParser
 
+class Section:
+    def __init__(self, configuration, sectionName):
+        self.sectionName = sectionName
+        self.configuration = configuration
+
+    def get(self, key, fallback):
+        return self.configuration.get(self.sectionName, key, fallback)
+
+    def getint(self, key, fallback):
+        return self.configuration.getint(self.sectionName, key, fallback)
+
+    def getboolean(self, key, fallback):
+        return self.configuration.getboolean(self.sectionName, key, fallback)
+
+    def set(self, key, value):
+        self.configuration.set(self.sectionName, key, value)
+
 class Configuration:
 
     def __init__(self, filePath):

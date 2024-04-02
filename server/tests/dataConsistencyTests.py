@@ -71,7 +71,6 @@ class DataConsistencyTests(unittest.TestCase):
         logging.disable('ERROR')
         config = TestConfiguration({'dataConsistency|fileSystem': '/mnt/testdata', 'dataConsistency|lastScrub': '2022-01-01 00:00:00', 'dataConsistency|interval': '3600'})
         result = dataConsistency.verifyDataConsistency(config, lambda: datetime(2022, 1, 1, 1, 5, 0), lambda fs: None, lambda fs: '')
-        print(f'result:{result}')
         self.assertTrue('Unknown status' in result)
 
         

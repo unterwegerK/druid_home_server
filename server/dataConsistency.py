@@ -6,16 +6,15 @@ from os import path
 from subprocess import getoutput
 import re
 
-def _startScrubbing():
+def _startScrubbing(fileSystem):
     getoutput(f'btrfs scrub start {fileSystem}')
-
-def _parseScrubOutput(scrubOutput):    
-    if m := re.search(r'\s*Status:\s*([a-zA-Z0-9_]*)', scrubOutput):
-        return m.group(1)
 
 def _getScrubStatus(fileSystem):
     return getoutput(f'btrfs scrub status {fileSystem}')
         
+def _parseScrubOutput(scrubOutput):    
+    if m := re.search(r'\s*Status:\s*([a-zA-Z0-9_]*)', scrubOutput):
+        return m.group(1)
 
 def verifyDataConsistency(config, getCurrentTime=datetime.now, startScrubbing=_startScrubbing, getScrubStatus=_getScrubStatus):
     scriptName = path.splitext(path.basename(__file__))[0]

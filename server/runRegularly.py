@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 #base for a cronjob that runs continously and performs regular actions
-from configuration import Configuration
+import backup
+from configuration import Configuration, Section
 import dataConsistency
 import emailNotification
+import packageSystem
 import periodicStatusReport
 import logging
 from os import path
@@ -36,7 +38,13 @@ if __name__ == '__main__':
             with Configuration(configFile) as config:
                 if config.isValid():
                     notifications = []
-                    #backup
+
+                    backupReport = backup.Backup().updateSnapshots(Section(config, 'backup'))
+                    if backupReport is not None: notifications.append(backupReport)
+        
+                    updateReport = packageSystem.updatePackages(config)
+                    if updateReport is not None: notifications.append(updateReport)
+                    
                     consistencyReport = dataConsistency.verifyDataConsistency(config)
                     if consistencyReport is not None: notifications.append(consistencyReport)
 
