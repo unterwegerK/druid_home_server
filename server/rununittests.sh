@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 -m unittest unittests tests.backupTests tests.periodicStatusReportTests tests.emailNotificationTests tests.dataConsistencyTests tests.packageSystemTests
+python3 -m unittest unittests tests.backup.backupConfigurationParserTests tests.backup.btrfsSnapshottingTests tests.backup.obsoleteSnapshotsDeterminationTests tests.periodicStatusReportTests tests.emailNotificationTests tests.dataConsistencyTests tests.packageSystemTests

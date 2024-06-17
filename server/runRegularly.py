@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #base for a cronjob that runs continously and performs regular actions
-import backup
+from backup import backup
 from configuration import Configuration, Section
 import dataConsistency
 import emailNotification
@@ -39,7 +39,7 @@ if __name__ == '__main__':
                 if config.isValid():
                     notifications = []
 
-                    backupReport = backup.Backup().updateSnapshots(Section(config, 'backup'))
+                    backupReport = backup.updateSnapshots(Section(config, 'backup'))
                     if backupReport is not None: notifications.append(backupReport)
         
                     updateReport = packageSystem.updatePackages(config)
