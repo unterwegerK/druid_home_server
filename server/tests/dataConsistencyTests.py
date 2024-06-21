@@ -1,6 +1,6 @@
 import unittest
 
-import dataConsistency
+import dataConsistency.dataConsistency as dataConsistency
 import logging
 from tests.testConfiguration import TestConfiguration
 from datetime import datetime
@@ -39,18 +39,18 @@ class DataConsistencyTests(unittest.TestCase):
 
 
     def testNoCheckConsistencyWithinInterval(self):
-        config = TestConfiguration({'dataConsistency|fileSystem': '/mnt/testdata', 'dataConsistency|lastScrub': '2022-01-01 00:00:00', 'dataConsistency|interval': '3600'})
+        config = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|lastScrub': '2022-01-01 00:00:00', 'backupVolume0|interval': '3600'})
         result = dataConsistency.verifyDataConsistency(config, lambda: datetime(2022, 1, 1, 0, 5, 0), lambda fs: None, lambda fs: 'Status: finished')
-        self.assertIsNone(result)
+        self.assertEqual(result, '')
 
     def testCheckConsistencyAfterIntervalPassed(self):
-        config = TestConfiguration({'dataConsistency|fileSystem': '/mnt/testdata', 'dataConsistency|lastScrub': '2022-01-01 00:00:00', 'dataConsistency|interval': '3600'})
+        config = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|lastScrub': '2022-01-01 00:00:00', 'backupVolume0|interval': '3600'})
         result = dataConsistency.verifyDataConsistency(config, lambda: datetime(2022, 1, 1, 1, 5, 0), lambda fs: None, lambda fs: 'Status: finished')
         self.assertTrue('finished' in result)
 
     def testErrorOnAbort(self):
         logging.disable('ERROR')
-        config = TestConfiguration({'dataConsistency|fileSystem': '/mnt/testdata', 'dataConsistency|lastScrub': '2022-01-01 00:00:00', 'dataConsistency|interval': '3600'})
+        config = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|lastScrub': '2022-01-01 00:00:00', 'backupVolume0|interval': '3600'})
         result = dataConsistency.verifyDataConsistency(config, lambda: datetime(2022, 1, 1, 1, 5, 0), lambda fs: None, lambda fs: 'Status: aborted')
         self.assertTrue('aborted' in result)
 
@@ -63,13 +63,13 @@ class DataConsistencyTests(unittest.TestCase):
             hours += 1
             return datetime(2022, 1, 2, hours, 0, 0)
 
-        config = TestConfiguration({'dataConsistency|fileSystem': '/mnt/testdata', 'dataConsistency|lastScrub': '2022-01-01 00:00:00', 'dataConsistency|interval': '3600'})
+        config = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|lastScrub': '2022-01-01 00:00:00', 'backupVolume0|interval': '3600'})
         result = dataConsistency.verifyDataConsistency(config, getCurrentTime, lambda fs: None, lambda fs: 'Status: running')
-        self.assertTrue('running' in result)
+        self.assertTrue('running' in result, result)
 
     def testErrorInScrubbing(self):
         logging.disable('ERROR')
-        config = TestConfiguration({'dataConsistency|fileSystem': '/mnt/testdata', 'dataConsistency|lastScrub': '2022-01-01 00:00:00', 'dataConsistency|interval': '3600'})
+        config = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|lastScrub': '2022-01-01 00:00:00', 'backupVolume0|interval': '3600'})
         result = dataConsistency.verifyDataConsistency(config, lambda: datetime(2022, 1, 1, 1, 5, 0), lambda fs: None, lambda fs: '')
         self.assertTrue('Unknown status' in result)
 
