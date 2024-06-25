@@ -6,7 +6,6 @@ from os import path
 from subprocess import getoutput
 import re
 from periodicTaskConfiguration import PeriodicTaskConfiguration
-from configuration import Section
 from dataConsistency import dataConsistencyConfigurationParser
 
 def _startScrubbing(fileSystem):
@@ -20,16 +19,16 @@ def _parseScrubOutput(scrubOutput):
         return m.group(1)
     return None
     
-def _scrubBackupVolume(section, fileSystem, getCurrentTime, startScrubbing, getScrubStatus):
+def _scrubBackupVolume(staticSection, dynamicSection, fileSystem, getCurrentTime, startScrubbing, getScrubStatus):
     DEFAULT_INTERVAL = 14 * 24 * 60 * 60
     DEFAULT_TIMEOUT = 5 * 60 * 60
     LAST_SCRUB_KEY = 'lastScrub'
     
-    timeout = section.getint('timeout', DEFAULT_TIMEOUT)
+    timeout = staticSection.getint('timeout', DEFAULT_TIMEOUT)
 
-    interval = section.getint('interval', DEFAULT_INTERVAL)
+    interval = staticSection.getint('interval', DEFAULT_INTERVAL)
 
-    with PeriodicTaskConfiguration(section, LAST_SCRUB_KEY, interval, getCurrentTime) as periodicCheck:
+    with PeriodicTaskConfiguration(dynamicSection, LAST_SCRUB_KEY, interval, getCurrentTime) as periodicCheck:
         if periodicCheck.periodicTaskIsDue:
             startScrubbing(fileSystem)
 
@@ -65,8 +64,8 @@ def verifyDataConsistency(configuration, getCurrentTime=datetime.now, startScrub
     backupVolumes = dataConsistencyConfigurationParser.getBackupVolumes(configuration)
     messages = []
 
-    for fileSystem, section in backupVolumes:
-        message = _scrubBackupVolume(section, fileSystem, getCurrentTime, startScrubbing, getScrubStatus)
+    for fileSystem, staticSection, dynamicSection in backupVolumes:
+        message = _scrubBackupVolume(staticSection, dynamicSection, fileSystem, getCurrentTime, startScrubbing, getScrubStatus)
         if not message is None:
             messages.append(message)
 

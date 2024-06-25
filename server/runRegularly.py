@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #base for a cronjob that runs continously and performs regular actions
 from backup import backup
-from configuration import Configuration, Section
+from configuration import StaticConfiguration, StaticSection, DynamicConfiguration, DynamicSection
 import dataConsistency
 import emailNotification
 import packageSystem
@@ -18,13 +18,14 @@ if __name__ == '__main__':
     scriptName = path.splitext(path.basename(__file__))[0]
 
     #Command-line arguments
-    if len(sys.argv) > 1:
-        configFile = sys.argv[1]
+    if len(sys.argv) > 2:
+        staticConfigFile = sys.argv[1]
+        dynamicConfigFile = sys.argv[2]
     else:
-        raise Exception('Config-file path required.')
+        raise Exception('Paths for static and dynamic configuration required.')
 
-    with Configuration(configFile) as config:
-        logFilePath = config.get(scriptName, 'logFilePath', f'/var/log/{scriptName}.log')
+    with StaticConfiguration(staticConfigFile) as staticConfig:
+        logFilePath = staticConfigFile.get(scriptName, 'logFilePath', f'/var/log/{scriptName}.log')
 
     logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
 
@@ -35,27 +36,27 @@ if __name__ == '__main__':
         try:
             time.sleep(ITERATION_INTERVAL)
 
-            with Configuration(configFile) as config:
-                if config.isValid():
+            with StaticConfiguration(staticConfigFile) as staticConfig, DynamicConfiguration(dynamicConfigFile) as dynamicConfig:
+                if staticConfigFile.isValid() and dynamicConfigFile.isValid():
                     notifications = []
 
-                    backupReport = backup.updateSnapshots(Section(config, 'backup'))
+                    backupReport = backup.updateSnapshots(staticConfig, dynamicConfig)
                     if backupReport is not None: notifications.append(backupReport)
         
-                    updateReport = packageSystem.updatePackages(config)
+                    updateReport = packageSystem.updatePackages(staticConfig, dynamicConfig)
                     if updateReport is not None: notifications.append(updateReport)
                     
-                    consistencyReport = dataConsistency.verifyDataConsistency(config)
+                    consistencyReport = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig)
                     if consistencyReport is not None: notifications.append(consistencyReport)
 
-                    statusReport = periodicStatusReport.getServerStatus(config)
+                    statusReport = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig)
                     if statusReport is not None: notifications.append(statusReport)
 
                     if len(notifications) > 0:
                         logging.info(f'Sending {len(notifications)} notifications via e-mail.')
-                        emailNotification.sendMail(config, notifications)
+                        emailNotification.sendMail(staticConfig, notifications)
 
-                    shutdown.shutdownOnInactivity(config)
+                    shutdown.shutdownOnInactivity(staticConfig)
 
         except Exception as e:
             logging.exception(f'Error occurred: {e}')

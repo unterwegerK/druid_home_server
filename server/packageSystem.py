@@ -4,7 +4,7 @@ from datetime import datetime, MINYEAR
 import logging
 from os import path
 from subprocess import getstatusoutput
-from configuration import Section
+from configuration import StaticSection, DynamicSection
 from periodicTaskConfiguration import PeriodicTaskConfiguration
 
 def _updateAptPackages():
@@ -12,14 +12,15 @@ def _updateAptPackages():
     
 
 def updatePackages(config, getCurrentTime=datetime.now, update=_updateAptPackages):
-    section = Section(config, 'packageSystem')
+    staticSection = StaticSection(config, 'packageSystem')
+    dynamicSection = DynamicSection(config, 'packageSystem')
     DEFAULT_INTERVAL = 7 * 24 * 60 * 60
     FORMAT = '%Y-%m-%d %H:%M:%S'
     LAST_UPDATE_KEY = 'lastUpdate'
 
-    interval = section.getint('interval', DEFAULT_INTERVAL)
+    interval = staticSection.getint('interval', DEFAULT_INTERVAL)
 
-    with PeriodicTaskConfiguration(section, LAST_UPDATE_KEY, interval, getCurrentTime) as periodicCheck:
+    with PeriodicTaskConfiguration(dynamicSection, LAST_UPDATE_KEY, interval, getCurrentTime) as periodicCheck:
         if periodicCheck.periodicTaskIsDue:
             (status, output) = update()
             if output == 0:

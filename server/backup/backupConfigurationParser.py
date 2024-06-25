@@ -1,4 +1,4 @@
-from configuration import Section
+from configuration import StaticSection
 from backup.btrfsSnapshotting import BtrfsSnapshotting
 from backup.obsoleteSnapshotDetermination import ObsoleteSnapshotDetermination
 
@@ -6,7 +6,7 @@ def getBackupVolumes(configuration):
     numberOfVolumes = int(configuration.get('backup', 'numberofvolumes', 0))
 
     for i in range(numberOfVolumes):
-        configurationSection = Section(configuration, 'backupVolume' + str(i))
+        configurationSection = StaticSection(configuration, 'backupVolume' + str(i))
 
         fileSystem = configurationSection.get('filesystem', None)
         if fileSystem is None:

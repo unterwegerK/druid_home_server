@@ -1,6 +1,6 @@
 from configparser import ConfigParser
 
-class Section:
+class DynamicSection:
     def __init__(self, configuration, sectionName):
         self.sectionName = sectionName
         self.configuration = configuration
@@ -17,7 +17,7 @@ class Section:
     def set(self, key, value):
         self.configuration.set(self.sectionName, key, value)
 
-class Configuration:
+class DynamicConfiguration:
 
     def __init__(self, filePath):
         self.filePath = filePath
@@ -60,6 +60,41 @@ class Configuration:
         if not self.configParser.has_section(section):
             self.configParser.add_section(section)
         self.configParser.set(section, key, value)
+
+        
+
+class StaticSection:
+    def __init__(self, configuration, sectionName):
+        self.sectionName = sectionName
+        self.configuration = configuration
+
+    def get(self, key, fallback):
+        return self.configuration.get(self.sectionName, key, fallback)
+
+    def getint(self, key, fallback):
+        return self.configuration.getint(self.sectionName, key, fallback)
+
+    def getboolean(self, key, fallback):
+        return self.configuration.getboolean(self.sectionName, key, fallback)
+
+class StaticConfiguration:
+
+    def __init__(self, filePath):
+            with open(self.filePath, 'r') as configFile:
+                self.configParser = ConfigParser()
+                self.configParser.read_file(configFile)
+            
+    def isValid(self):
+        return self.configParser is not None
+
+    def get(self, section, key, fallback):
+        return self.configParser.get(section, key, fallback=fallback)
+
+    def getint(self, section, key, fallback):
+        return self.configParser.getint(section, key, fallback=fallback)
+
+    def getboolean(self, section, key, fallback):
+        return self.configParser.getboolean(section, key, fallback=fallback)
 
 
 

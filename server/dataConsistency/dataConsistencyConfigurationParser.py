@@ -1,4 +1,4 @@
-from configuration import Section
+from configuration import StaticSection, DynamicSection
 
 def getBackupVolumes(configuration):
     numberOfVolumes = int(configuration.get('backup', 'numberofvolumes', -1))
@@ -7,11 +7,12 @@ def getBackupVolumes(configuration):
         raise Exception('numberofvolumes needs to be defined in Section "backup"')
 
     for i in range(numberOfVolumes):
-        configurationSection = Section(configuration, 'backupVolume' + str(i))
+        staticSection = StaticSection(configuration, 'backupVolume' + str(i))
+        dynamicSection = DynamicSection(configuration, 'backupVolume' + str(i))
 
-        fileSystem = configurationSection.get('filesystem', None)
+        fileSystem = staticSection.get('filesystem', None)
         if fileSystem is None:
-            errorMessage = f'Key filesystem must be defined in Section {configurationSection.sectionName}'
+            errorMessage = f'Key filesystem must be defined in Section {staticSection.sectionName}'
             raise Exception(errorMessage)
 
-        yield (fileSystem, configurationSection)
+        yield (fileSystem, staticSection, dynamicSection)
