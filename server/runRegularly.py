@@ -2,7 +2,7 @@
 #base for a cronjob that runs continously and performs regular actions
 from backup import backup
 from configuration import StaticConfiguration, StaticSection, DynamicConfiguration, DynamicSection
-import dataConsistency
+from dataConsistency import dataConsistency
 import emailNotification
 import packageSystem
 import periodicStatusReport
@@ -11,6 +11,8 @@ from os import path
 import sys
 import shutdown
 import time
+from dataConsistency.btrfsChecking import BtrfsChecking
+from dataConsistency.btrfsScrubbing import BtrfsScrubbing
 
 ITERATION_INTERVAL = 300
 
@@ -24,8 +26,8 @@ if __name__ == '__main__':
     else:
         raise Exception('Paths for static and dynamic configuration required.')
 
-    with StaticConfiguration(staticConfigFile) as staticConfig:
-        logFilePath = staticConfigFile.get(scriptName, 'logFilePath', f'/var/log/{scriptName}.log')
+    staticConfig = StaticConfiguration(staticConfigFile)
+    logFilePath = staticConfig.get('logging', 'logFilePath', f'/var/log/{scriptName}.log')
 
     logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=logging.INFO, handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
 
@@ -36,19 +38,23 @@ if __name__ == '__main__':
         try:
             time.sleep(ITERATION_INTERVAL)
 
-            with StaticConfiguration(staticConfigFile) as staticConfig, DynamicConfiguration(dynamicConfigFile) as dynamicConfig:
-                if staticConfigFile.isValid() and dynamicConfigFile.isValid():
+            with DynamicConfiguration(dynamicConfigFile) as dynamicConfig:
+                if staticConfig.isValid() and dynamicConfig.isValid():
                     notifications = []
 
+                    logging.info('Updating snapshots')
                     backupReport = backup.updateSnapshots(staticConfig, dynamicConfig)
-                    if backupReport is not None: notifications.append(backupReport)
+                    notifications.extend(backupReport)
         
+                    logging.info('Updating system')
                     updateReport = packageSystem.updatePackages(staticConfig, dynamicConfig)
                     if updateReport is not None: notifications.append(updateReport)
                     
-                    consistencyReport = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig)
-                    if consistencyReport is not None: notifications.append(consistencyReport)
+                    logging.info('Checking consistency')
+                    consistencyReport = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, BtrfsScrubbing(), BtrfsChecking())
+                    notifications.extend(consistencyReport)
 
+                    logging.info('Assembling status report')
                     statusReport = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig)
                     if statusReport is not None: notifications.append(statusReport)
 
@@ -56,7 +62,13 @@ if __name__ == '__main__':
                         logging.info(f'Sending {len(notifications)} notifications via e-mail.')
                         emailNotification.sendMail(staticConfig, notifications)
 
+                    logging.info('Checking for shutdown')
                     shutdown.shutdownOnInactivity(staticConfig)
+                else:
+                    if not staticConfig.isValid():
+                        logging.error(f'The config file {staticConfigFile} could not be found.')
+                    if not dynamicConfig.isValid():
+                        logging.error(f'The config file {dynamicConfigFile} could not be found.')
 
         except Exception as e:
             logging.exception(f'Error occurred: {e}')

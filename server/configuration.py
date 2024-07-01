@@ -1,4 +1,6 @@
 from configparser import ConfigParser
+from pathlib import Path
+import os
 
 class DynamicSection:
     def __init__(self, configuration, sectionName):
@@ -26,6 +28,9 @@ class DynamicConfiguration:
 
     def __enter__(self):
         try:
+            if not os.path.exists(self.filePath):
+                Path(self.filePath).touch()
+
             self.configFile = open(self.filePath, 'r')
             self.configParser = ConfigParser()
             self.configParser.read_file(self.configFile)
@@ -80,7 +85,7 @@ class StaticSection:
 class StaticConfiguration:
 
     def __init__(self, filePath):
-            with open(self.filePath, 'r') as configFile:
+            with open(filePath, 'r') as configFile:
                 self.configParser = ConfigParser()
                 self.configParser.read_file(configFile)
             

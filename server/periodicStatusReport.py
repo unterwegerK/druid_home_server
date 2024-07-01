@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
 #provides a status report in constants intervals
 from datetime import datetime, MINYEAR
-import logging
-from os import path
 from subprocess import getoutput
 from configuration import StaticSection, DynamicSection
 from periodicTaskConfiguration import PeriodicTaskConfiguration
+from notification import Notification, Severity
 
 def getServerStatus(staticConfig, dynamicConfig, getCurrentTime=datetime.now):
     staticSection = StaticSection(staticConfig, 'periodicStatusReport')
@@ -26,7 +24,7 @@ def getServerStatus(staticConfig, dynamicConfig, getCurrentTime=datetime.now):
             availableSpaceHeader = 'The following disk space is available:'
             availableSpace = 'No btrfs file-system specified...' if btrfsFileSystem is None else getoutput(f'btrfs filesystem usage {btrfsFileSystem} | head -n10 | grep "Free\|Used"')
 
-            return f'{rebootHeader}\n{reboots}\n\n{availableSpaceHeader}\n{availableSpace}'
+            return Notification('Status Report', f'{rebootHeader}\n{reboots}\n\n{availableSpaceHeader}\n{availableSpace}', Severity.INFO)
         else:
             return None
 
