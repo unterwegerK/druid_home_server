@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-
-import configparser
 import logging
 import smtplib
 from os import path
+from notification import Notification, Severity
 
 def _sendMail(smtpServerAddress, user, password, destination, subject, message):
     with smtplib.SMTP(smtpServerAddress, 587) as smtpServer:
@@ -17,6 +16,28 @@ def _sendMail(smtpServerAddress, user, password, destination, subject, message):
         header = f'To: {destination}\nFrom: {user}\nSubject: {subject}'
         smtpMessage = f'{header}\n\n{message}\n\n'
         smtpServer.sendmail(user, destination, smtpMessage)
+
+def _concatenateNotifications(notifications):
+    severityNotifications = list(filter(lambda n: isinstance(n, Notification), notifications))
+    errorNotifications = list(filter(lambda n: n.severity == Severity.ERROR, severityNotifications))
+    infoNotifications = list(filter(lambda n: n.severity != Severity.ERROR, severityNotifications))
+    stringNotifications = list(filter(lambda n: not isinstance(n, Notification), notifications))
+
+    concatenated = '\n'.join(map(lambda n: 'ERROR: ' + n.header, errorNotifications))
+
+    concatenated += '\n\n'
+
+    concatenated += '\n'.join(map(lambda n: f'==== {n.header} (ERROR) ====\n{n.message}\n', errorNotifications))
+
+    concatenated += '\n'
+
+    concatenated += '\n'.join(map(lambda n: f'==== {n.header} (INFO) ====\n{n.message}\n', infoNotifications))
+
+    concatenated += '\n'
+
+    concatenated += '\n'.join(map(lambda n: f'=====================\n{n}\n',stringNotifications))
+
+    return concatenated
 
 def sendMail(config, notifications):
     scriptName = path.splitext(path.basename(__file__))[0]
@@ -41,5 +62,5 @@ def sendMail(config, notifications):
     subject = f'Status of {serverDisplayName}' if serverDisplayName is not None else f'Server status'
     message = f'Hello,\nthe following changes have been made and/or notifications are available:\n'
 
-    message += '\n=====================\n'.join(notifications)
+    message += _concatenateNotifications(notifications)
     _sendMail(smtpServerAddress, smtpUser, smtpPassword, receivers, subject, message)

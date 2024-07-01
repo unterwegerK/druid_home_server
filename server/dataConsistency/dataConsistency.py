@@ -2,73 +2,104 @@
 #provides a status report in constants intervals
 from datetime import datetime, MINYEAR
 import logging
-from os import path
-from subprocess import getoutput
-import re
 from periodicTaskConfiguration import PeriodicTaskConfiguration
 from dataConsistency import dataConsistencyConfigurationParser
-
-def _startScrubbing(fileSystem):
-    getoutput(f'btrfs scrub start {fileSystem}')
-
-def _getScrubStatus(fileSystem):
-    return getoutput(f'btrfs scrub status {fileSystem}')
-        
-def _parseScrubOutput(scrubOutput):    
-    if m := re.search(r'\s*Status:\s*([a-zA-Z0-9_]*)', scrubOutput):
-        return m.group(1)
-    return None
+from configuration import StaticSection, DynamicSection
+from notification import Notification, Severity
     
-def _scrubBackupVolume(staticSection, dynamicSection, fileSystem, getCurrentTime, startScrubbing, getScrubStatus):
-    DEFAULT_INTERVAL = 14 * 24 * 60 * 60
+def _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime):
+    btrfsScrubbing.startScrubbing(fileSystem)
+
+    startTime = getCurrentTime()
+
+    scrubOutput = None
+    finished = False
+    while not finished:
+        scrubOutput = btrfsScrubbing.getScrubStatus(fileSystem) 
+        status = btrfsScrubbing.parseScrubOutput(scrubOutput)
+        
+        if status == 'aborted':
+            errorMessage = f'Scrubbing was aborted with the following output:\n--------\n{scrubOutput}\n--------'
+            logging.error(errorMessage)
+            return errorMessage
+
+        if status == 'finished':
+            return f'Scrubbing successful with the following output:\n--------\n{scrubOutput}\n--------'
+
+        if status == 'running' and (getCurrentTime() - startTime).total_seconds() >= timeout:
+            errorMessage = f'Timeout during scrubbing. Last output:\n--------\n{scrubOutput}\n--------'
+            logging.error(errorMessage)
+            return errorMessage
+
+        if status != 'running':
+            errorMessage = f'Unknown status of scrubbing. Last output:\n--------\n{scrubOutput}\n--------'
+            logging.error(errorMessage)
+            return errorMessage
+
+def _performScrubbings(staticConfiguration, dynamicConfiguration, btrfsScrubbing, getCurrentTime):
+    DEFAULT_INTERVAL = 23 * 24 * 60 * 60
     DEFAULT_TIMEOUT = 5 * 60 * 60
     LAST_SCRUB_KEY = 'lastScrub'
+
+    staticSection = StaticSection(staticConfiguration, 'dataConsistency')
+    dynamicSection = DynamicSection(dynamicConfiguration, 'dataConsistency')
     
-    timeout = staticSection.getint('timeout', DEFAULT_TIMEOUT)
+    timeout = staticSection.getint('scrubTimeout', DEFAULT_TIMEOUT)
+    interval = staticSection.getint('scrubInterval', DEFAULT_INTERVAL)
 
-    interval = staticSection.getint('interval', DEFAULT_INTERVAL)
-
+    messages = []
     with PeriodicTaskConfiguration(dynamicSection, LAST_SCRUB_KEY, interval, getCurrentTime) as periodicCheck:
         if periodicCheck.periodicTaskIsDue:
-            startScrubbing(fileSystem)
 
-            startTime = getCurrentTime()
+            backupVolumes = dataConsistencyConfigurationParser.getBackupVolumes(staticConfiguration)
 
-            scrubOutput = None
-            finished = False
-            while not finished:
-                scrubOutput = getScrubStatus(fileSystem) 
-                status = _parseScrubOutput(scrubOutput)
-                
-                if status == 'aborted':
-                    errorMessage = f'Scrubbing was aborted with the following output:\n--------\n{scrubOutput}\n--------'
-                    logging.error(errorMessage)
-                    return errorMessage
+            for fileSystem in backupVolumes:
+                message = _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime)
+                if not message is None:
+                    messages.append(message)
 
-                if status == 'finished':
-                    return f'Scrubbing successful with the following output:\n--------\n{scrubOutput}\n--------'
+    return messages
 
-                if status == 'running' and (getCurrentTime() - startTime).total_seconds() >= timeout:
-                    errorMessage = f'Timeout during scrubbing. Last output:\n--------\n{scrubOutput}\n--------'
-                    logging.error(errorMessage)
-                    return errorMessage
+def _checkDevice(backupDevice, btrfsChecking):
+    output = btrfsChecking.checkDevice(backupDevice)
+    (numberOfErrors, header, message) = btrfsChecking.parseCheckOutput(output)
+    return Notification(header, message, Severity.ERROR if numberOfErrors > 0 else Severity.INFO)
 
-                if status != 'running':
-                    errorMessage = f'Unknown status of scrubbing. Last output:\n--------\n{scrubOutput}\n--------'
-                    logging.error(errorMessage)
-                    return errorMessage
+def _performBtrfsCheck(staticConfiguration, dynamicConfiguration, btrfsChecking, getCurrentTime):
+    DEFAULT_INTERVAL = 31 * 24 * 60 * 60
+    LAST_CHECK_KEY = 'lastCheck'
 
-    return None
+    staticSection = StaticSection(staticConfiguration, 'dataConsistency')
+    dynamicSection = DynamicSection(dynamicConfiguration, 'dataConsistency')
+    
+    interval = staticSection.getint('checkInterval', DEFAULT_INTERVAL)
 
-def verifyDataConsistency(configuration, getCurrentTime=datetime.now, startScrubbing=_startScrubbing, getScrubStatus=_getScrubStatus):
-    backupVolumes = dataConsistencyConfigurationParser.getBackupVolumes(configuration)
+    suspendCommand = staticSection.get('suspendCommand', None)
+
+    if suspendCommand is None:
+        return [Message('Key suspendCommand must be defined in section dataConsistency', Severity.ERROR)]
+
+    messages = []
+    with PeriodicTaskConfiguration(dynamicSection, LAST_CHECK_KEY, interval, getCurrentTime) as periodicCheck:
+        if periodicCheck.periodicTaskIsDue:
+            
+            backupDevices = dataConsistencyConfigurationParser.getBackupDevices(staticSection)
+
+            btrfsChecking.suspend(suspendCommand)
+
+            for backupDevice in backupDevices:
+                messages.append(_checkDevice(backupDevice, btrfsChecking))
+
+    return messages
+   
+
+def verifyDataConsistency(staticConfiguration, dynamicConfiguration, btrfsScrubbing, btrfsChecking, getCurrentTime=datetime.now):
     messages = []
 
-    for fileSystem, staticSection, dynamicSection in backupVolumes:
-        message = _scrubBackupVolume(staticSection, dynamicSection, fileSystem, getCurrentTime, startScrubbing, getScrubStatus)
-        if not message is None:
-            messages.append(message)
+    messages.extend(_performScrubbings(staticConfiguration, dynamicConfiguration, btrfsScrubbing, getCurrentTime))
 
-    return '\n'.join(messages)
+    messages.extend(_performBtrfsCheck(staticConfiguration, dynamicConfiguration, btrfsChecking, getCurrentTime))
+
+    return messages
 
 
