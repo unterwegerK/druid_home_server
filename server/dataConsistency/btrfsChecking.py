@@ -9,9 +9,9 @@ class BtrfsChecking:
     def checkDevice(self, device):
         process = subprocess.run(f'btrfs check {device}', capture_output=True)
 
-        return (process.returncode, 'BTRFS Check', f'stdout: {process.stdout}\nstderr: {process.stderr}')
+        return (process.returncode, f'stdout: {process.stdout}\nstderr: {process.stderr}')
     
-    def containsError(self, output):
+    def containsErrors(self, output):
         if re.search('found \\d+ bytes used, no error found', output):
             return False
         

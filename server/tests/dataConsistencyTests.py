@@ -6,6 +6,7 @@ from dataConsistency.btrfsChecking import BtrfsChecking
 import logging
 from tests.testConfiguration import TestConfiguration
 from datetime import datetime
+from notification import Severity
 
 class TestScrubbing:
     def __init__(self, output):
@@ -54,24 +55,24 @@ class ScrubTests(unittest.TestCase):
         self.assertEqual(testee.parseScrubOutput(output2), 'finished')
 
 
-    def testNoCheckConsistencyWithinInterval(self):
+    def testNoScrubbingWithinInterval(self):
         staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: finished'), lambda: datetime(2022, 1, 1, 0, 5, 0), )
         self.assertTrue(len(messages) == 0, messages)
 
-    def testCheckConsistencyAfterIntervalPassed(self):
+    def testScrubbingAfterIntervalPassed(self):
         staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: finished'), lambda: datetime(2022, 1, 1, 1, 5, 0))
-        self.assertIn('finished', messages[0])
+        self.assertIn('finished', messages[0].message)
 
     def testErrorOnAbort(self):
         logging.disable('ERROR')
         staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: aborted'), lambda: datetime(2022, 1, 1, 1, 5, 0), )
-        self.assertIn('aborted', messages[0])
+        self.assertIn('aborted', messages[0].message)
 
     hours = 0
     def testTimeout(self):
@@ -85,18 +86,30 @@ class ScrubTests(unittest.TestCase):
         staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: running'), getCurrentTime)
-        self.assertIn('running', messages[0])
+        self.assertIn('running', messages[0].message)
 
     def testErrorInScrubbing(self):
         logging.disable('ERROR')
         staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing(''), lambda: datetime(2022, 1, 1, 1, 5, 0))
-        self.assertIn('Unknown status', messages[0])
+        self.assertIn('Unknown status', messages[0].message)
 
         
 
+class TestChecking():
+    def __init__(self, output='found 1234567890 bytes used, no error found', exitcode=0):
+        self.output = output
+        self.exitcode = exitcode
 
+    def suspend(self, suspendCommand):
+        pass
+
+    def checkDevice(self, device):
+        return (self.exitcode, self.output)
+    
+    def containsErrors(self, output):
+        return False
 
 class CheckTests(unittest.TestCase):
     def testParsingOutputWithoutError(self):
@@ -121,7 +134,7 @@ class CheckTests(unittest.TestCase):
         
         testee = BtrfsChecking()
 
-        self.assertFalse(testee.containsError(output))
+        self.assertFalse(testee.containsErrors(output))
 
 
     def testParsingOutputWithError1(self):
@@ -137,7 +150,7 @@ class CheckTests(unittest.TestCase):
         
         testee = BtrfsChecking()
 
-        self.assertTrue(testee.containsError(output))
+        self.assertTrue(testee.containsErrors(output))
 
     def testParsingOutputWithError2(self):
         output = '''found 1234567890 bytes used, error(s) found
@@ -151,7 +164,7 @@ class CheckTests(unittest.TestCase):
         
         testee = BtrfsChecking()
 
-        self.assertTrue(testee.containsError(output))
+        self.assertTrue(testee.containsErrors(output))
 
     def testParsingOutputWithError3(self):
         output = '''ERROR: errors found in fs roots
@@ -165,7 +178,7 @@ class CheckTests(unittest.TestCase):
         
         testee = BtrfsChecking()
 
-        self.assertTrue(testee.containsError(output))
+        self.assertTrue(testee.containsErrors(output))
 
     def testParsingAmbigiousOutput(self):
         output = '''total csum bytes: 123450
@@ -178,5 +191,39 @@ class CheckTests(unittest.TestCase):
         
         testee = BtrfsChecking()
 
-        self.assertIsNone(testee.containsError(output))
+        self.assertIsNone(testee.containsErrors(output))
+
+    def testNoCheckWithinInterval(self):
+        staticConfig = TestConfiguration({'dataConsistency|devices': '/dev/sda1;/dev/sda2', 'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
+        dynamicConfig = TestConfiguration({'dataConsistency|lastCheck': '2022-01-01 00:00:00'})
+        messages = dataConsistency._performBtrfsCheck(staticConfig, dynamicConfig, TestChecking(), lambda: datetime(2022, 1, 1, 0, 5, 0), )
+        self.assertTrue(len(messages) == 0, messages)
+
+    def testCheckAfterIntervalPassed(self):
+        staticConfig = TestConfiguration({'dataConsistency|devices': '/dev/sda1;/dev/sda2', 'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
+        dynamicConfig = TestConfiguration({'dataConsistency|lastCheck': '2022-01-01 00:00:00'})
+        messages = dataConsistency._performBtrfsCheck(staticConfig, dynamicConfig, TestChecking(), lambda: datetime(2022, 1, 1, 1, 5, 0))
+        self.assertIn('no error found', messages[0].message)
+        self.assertEqual(Severity.INFO, messages[0].severity)
+
+
+class DataConsistencyTest(unittest.TestCase):
+    def testCheckAndScrub(self):
+        staticConfig = TestConfiguration({
+            'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600',
+            'dataConsistency|devices': '/dev/sda1', 'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
+        dynamicConfig = TestConfiguration({
+            'dataConsistency|lastScrub': '2022-01-01 00:00:00',
+            'dataConsistency|lastCheck': '2022-01-01 00:00:00'})
+        
+        notifications = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, TestScrubbing('finished'), TestChecking(), lambda: datetime(2022, 1, 1, 1, 5, 0))
+
+        self.assertEqual(len(notifications), 2)
+        self.assertEqual(notifications[0].severity, Severity.INFO)
+        self.assertEqual(notifications[0].header, 'Btrfs Scrub')
+        self.assertIn('finished', notifications[0].message)
+
+        self.assertEqual(notifications[1].severity, Severity.INFO)
+        self.assertEqual(notifications[1].header, 'Btrfs Check')
+        self.assertIn('no error found', notifications[1].message)
 

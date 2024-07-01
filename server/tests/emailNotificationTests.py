@@ -46,4 +46,4 @@ StringNotification2
 """
 
         self.maxDiff = None
-        self.assertEquals(emailNotification._concatenateNotifications(notifications), expectedResult)
+        self.assertEqual(emailNotification._concatenateNotifications(notifications), expectedResult)

@@ -21,20 +21,20 @@ def _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime):
         if status == 'aborted':
             errorMessage = f'Scrubbing was aborted with the following output:\n--------\n{scrubOutput}\n--------'
             logging.error(errorMessage)
-            return errorMessage
+            return (Severity.ERROR, 'Scrub aborted', errorMessage)
 
         if status == 'finished':
-            return f'Scrubbing successful with the following output:\n--------\n{scrubOutput}\n--------'
+            return (Severity.INFO, 'Btrfs Scrub', f'Scrubbing successful with the following output:\n--------\n{scrubOutput}\n--------')
 
         if status == 'running' and (getCurrentTime() - startTime).total_seconds() >= timeout:
             errorMessage = f'Timeout during scrubbing. Last output:\n--------\n{scrubOutput}\n--------'
             logging.error(errorMessage)
-            return errorMessage
+            return (Severity.ERROR, 'Timeout during scrub', errorMessage)
 
         if status != 'running':
             errorMessage = f'Unknown status of scrubbing. Last output:\n--------\n{scrubOutput}\n--------'
             logging.error(errorMessage)
-            return errorMessage
+            return (Severity.ERROR, 'Unknown scrub status', errorMessage)
 
 def _performScrubbings(staticConfiguration, dynamicConfiguration, btrfsScrubbing, getCurrentTime):
     DEFAULT_INTERVAL = 23 * 24 * 60 * 60
@@ -54,16 +54,16 @@ def _performScrubbings(staticConfiguration, dynamicConfiguration, btrfsScrubbing
             backupVolumes = dataConsistencyConfigurationParser.getBackupVolumes(staticConfiguration)
 
             for fileSystem in backupVolumes:
-                message = _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime)
+                (severity, header, message) = _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime)
                 if not message is None:
-                    messages.append(message)
+                    messages.append(Notification(header, message, severity))
 
     return messages
 
 def _checkDevice(backupDevice, btrfsChecking):
-    output = btrfsChecking.checkDevice(backupDevice)
-    (numberOfErrors, header, message) = btrfsChecking.parseCheckOutput(output)
-    return Notification(header, message, Severity.ERROR if numberOfErrors > 0 else Severity.INFO)
+    (exitcode, output) = btrfsChecking.checkDevice(backupDevice)
+    btrfsChecking.containsErrors(output)
+    return Notification('Btrfs Check', output, Severity.ERROR if (exitcode != 0 or btrfsChecking.containsErrors(output)) else Severity.INFO)
 
 def _performBtrfsCheck(staticConfiguration, dynamicConfiguration, btrfsChecking, getCurrentTime):
     DEFAULT_INTERVAL = 31 * 24 * 60 * 60
@@ -77,7 +77,7 @@ def _performBtrfsCheck(staticConfiguration, dynamicConfiguration, btrfsChecking,
     suspendCommand = staticSection.get('suspendCommand', None)
 
     if suspendCommand is None:
-        return [Message('Key suspendCommand must be defined in section dataConsistency', Severity.ERROR)]
+        return [Notification('Btrfs Check', 'Key suspendCommand must be defined in section dataConsistency', Severity.ERROR)]
 
     messages = []
     with PeriodicTaskConfiguration(dynamicSection, LAST_CHECK_KEY, interval, getCurrentTime) as periodicCheck:
