@@ -1,4 +1,4 @@
-from configuration import StaticSection, DynamicSection
+from configuration import StaticSection
 
 def getBackupVolumes(staticConfiguration):
     numberOfVolumes = int(staticConfiguration.get('backup', 'numberofvolumes', -1))
@@ -14,7 +14,14 @@ def getBackupVolumes(staticConfiguration):
             errorMessage = f'Key filesystem must be defined in Section {staticSection.sectionName}'
             raise Exception(errorMessage)
 
-        yield (fileSystem)
+        subvolume = staticSection.get('subvolume', None)
+        if subvolume is None:
+            errorMessage = f'Key subvolume must be defined in Section {staticSection.sectionName}'
+            raise Exception(errorMessage)
 
-def getBackupDevices(staticSection):
-    return staticSection.get('devices', '').split(';')
+        yield (fileSystem, subvolume)
+
+def getBackupFileSystems(staticConfiguration):
+    backupVolumes = list(getBackupVolumes(staticConfiguration))
+    return set([v[0] for v in backupVolumes])
+

@@ -1,21 +1,7 @@
 #!/usr/bin/env python3
 import logging
-import smtplib
 from os import path
-from notification import Notification, Severity
-
-def _sendMail(smtpServerAddress, user, password, destination, subject, message):
-    with smtplib.SMTP(smtpServerAddress, 587) as smtpServer:
-        smtpServer.ehlo()
-        smtpServer.starttls()
-        smtpServer.ehlo
-        smtpServer.login(user, password)
-
-        logging.info(f'Sending e-mail to {destination} with content: {message}')
-
-        header = f'To: {destination}\nFrom: {user}\nSubject: {subject}'
-        smtpMessage = f'{header}\n\n{message}\n\n'
-        smtpServer.sendmail(user, destination, smtpMessage)
+from notification.notification import Notification, Severity
 
 def _concatenateNotifications(notifications):
     severityNotifications = list(filter(lambda n: isinstance(n, Notification), notifications))
@@ -39,7 +25,7 @@ def _concatenateNotifications(notifications):
 
     return concatenated
 
-def sendMail(config, notifications):
+def sendMail(config, notifications, sender):
     scriptName = path.splitext(path.basename(__file__))[0]
     smtpServerAddress = config.get(scriptName, 'smtpServer', None)
     smtpUser = config.get(scriptName, 'user', None)
@@ -63,4 +49,6 @@ def sendMail(config, notifications):
     message = f'Hello,\nthe following changes have been made and/or notifications are available:\n'
 
     message += _concatenateNotifications(notifications)
-    _sendMail(smtpServerAddress, smtpUser, smtpPassword, receivers, subject, message)
+    
+    logging.info(f'Sending e-mail to {receivers} with content: {message}')
+    sender.sendEMail(smtpServerAddress, smtpUser, smtpPassword, receivers, subject, message)

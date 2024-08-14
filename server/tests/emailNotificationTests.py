@@ -1,9 +1,8 @@
 import unittest
-import socket
-
+from tests.mocks import TestSender
 from tests.testConfiguration import TestConfiguration
-import emailNotification
-from notification import Notification, Severity
+import notification.emailNotification as emailNotification
+from notification.notification import Notification, Severity
 
 class EMailNotificationTests(unittest.TestCase):
     def testSocketError(self):
@@ -12,9 +11,18 @@ class EMailNotificationTests(unittest.TestCase):
             'emailNotification|user': 'testuser', 
             'emailNotification|password': 'password',
             'emailNotification|smtpServer':'testserver',
-            'emailNotification|receivers':'unknownreceivers'
+            'emailNotification|receivers':'unknownreceivers',
+            'emailNotification|serverDisplayName':'druidServer'
         })
-        self.assertRaises(socket.gaierror, lambda:emailNotification.sendMail(config, ['Notification1']))
+
+        sender = TestSender()
+        emailNotification.sendMail(config, ['Notification1'], sender)
+        self.assertEqual(len(sender.sendEMails), 1)
+        self.assertEqual(sender.sendEMails[0][0], 'testserver')
+        self.assertEqual(sender.sendEMails[0][1], 'testuser')
+        self.assertEqual(sender.sendEMails[0][2], 'password')
+        self.assertEqual(sender.sendEMails[0][3],'unknownreceivers')
+        self.assertEqual(sender.sendEMails[0][4], 'Status of druidServer')
 
     def testNotificationConcatenation(self):
         notifications = [

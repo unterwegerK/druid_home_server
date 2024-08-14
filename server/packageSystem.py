@@ -6,13 +6,10 @@ from os import path
 from subprocess import getstatusoutput
 from configuration import StaticSection, DynamicSection
 from periodicTaskConfiguration import PeriodicTaskConfiguration
-from notification import Notification, Severity
-
-def _updateAptPackages():
-    return getstatusoutput('apt-get update && apt-get upgrade -y')
+from notification.notification import Notification, Severity
     
 
-def updatePackages(staticConfig, dynamicConfig, getCurrentTime=datetime.now, update=_updateAptPackages):
+def updatePackages(staticConfig, dynamicConfig, update, getCurrentTime):
     staticSection = StaticSection(staticConfig, 'packageSystem')
     dynamicSection = DynamicSection(dynamicConfig, 'packageSystem')
     DEFAULT_INTERVAL = 7 * 24 * 60 * 60
@@ -24,11 +21,10 @@ def updatePackages(staticConfig, dynamicConfig, getCurrentTime=datetime.now, upd
         if periodicCheck.periodicTaskIsDue:
             (status, output) = update()
             if status == 0:
-                severity = Severity.INFO
+                return Notification('Package update', output, Severity.INFO)
             else:
                 logging.error(output)
-                severity = Severity.ERROR
-            return Notification('Error during package update', output, severity)
+                return Notification('Error during package update', output, Severity.ERROR)
         else:
             return None
 

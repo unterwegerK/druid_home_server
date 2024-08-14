@@ -1,27 +1,18 @@
 import unittest
 
+from dataConsistency import dataConsistencyConfigurationParser
 import dataConsistency.dataConsistency as dataConsistency
 from dataConsistency.btrfsScrubbing import BtrfsScrubbing
 from dataConsistency.btrfsChecking import BtrfsChecking
 import logging
+from tests.mocks import TestChecking, TestScrubbing
 from tests.testConfiguration import TestConfiguration
 from datetime import datetime
-from notification import Severity
-
-class TestScrubbing:
-    def __init__(self, output):
-        self.output = output
-
-    def startScrubbing(self, fileSystem):
-        pass
-
-    def getScrubStatus(self, fileSystem):
-        return self.output
-            
-    def parseScrubOutput(self, scrubOutput):    
-        return scrubOutput
+from notification.notification import Severity
 
 class ScrubTests(unittest.TestCase):
+    backupConfig = {'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|subvolume': '/mnt/testdata/subvol0', 'dataConsistency|scrubInterval': '3600'}
+
     def testParseScrubOutput(self):
         testee = BtrfsScrubbing()
         output0 = '''UUID:             xyz
@@ -54,22 +45,21 @@ class ScrubTests(unittest.TestCase):
         Error summary:    no errors found'''
         self.assertEqual(testee.parseScrubOutput(output2), 'finished')
 
-
     def testNoScrubbingWithinInterval(self):
-        staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
+        staticConfig = TestConfiguration(self.backupConfig)
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: finished'), lambda: datetime(2022, 1, 1, 0, 5, 0), )
         self.assertTrue(len(messages) == 0, messages)
 
     def testScrubbingAfterIntervalPassed(self):
-        staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
+        staticConfig = TestConfiguration(self.backupConfig)
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: finished'), lambda: datetime(2022, 1, 1, 1, 5, 0))
         self.assertIn('finished', messages[0].message)
 
     def testErrorOnAbort(self):
         logging.disable('ERROR')
-        staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
+        staticConfig = TestConfiguration(self.backupConfig)
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: aborted'), lambda: datetime(2022, 1, 1, 1, 5, 0), )
         self.assertIn('aborted', messages[0].message)
@@ -83,35 +73,21 @@ class ScrubTests(unittest.TestCase):
             hours += 1
             return datetime(2022, 1, 2, hours, 0, 0)
 
-        staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
+        staticConfig = TestConfiguration(self.backupConfig)
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing('Status: running'), getCurrentTime)
         self.assertIn('running', messages[0].message)
 
     def testErrorInScrubbing(self):
         logging.disable('ERROR')
-        staticConfig = TestConfiguration({'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600'})
+        staticConfig = TestConfiguration(self.backupConfig)
         dynamicConfig = TestConfiguration({'dataConsistency|lastScrub': '2022-01-01 00:00:00'})
         messages = dataConsistency._performScrubbings(staticConfig, dynamicConfig, TestScrubbing(''), lambda: datetime(2022, 1, 1, 1, 5, 0))
         self.assertIn('Unknown status', messages[0].message)
 
-        
-
-class TestChecking():
-    def __init__(self, output='found 1234567890 bytes used, no error found', exitcode=0):
-        self.output = output
-        self.exitcode = exitcode
-
-    def suspend(self, suspendCommand):
-        pass
-
-    def checkDevice(self, device):
-        return (self.exitcode, self.output)
-    
-    def containsErrors(self, output):
-        return False
-
 class CheckTests(unittest.TestCase):
+    backupConfig = {'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|subvolume': '/mnt/testdata/subvol0', 'dataConsistency|scrubInterval': '3600'}
+
     def testParsingOutputWithoutError(self):
         output = '''Opening filesystem to check...
                     Checking filesystem on /dev/sdx4
@@ -194,29 +170,34 @@ class CheckTests(unittest.TestCase):
         self.assertIsNone(testee.containsErrors(output))
 
     def testNoCheckWithinInterval(self):
-        staticConfig = TestConfiguration({'dataConsistency|devices': '/dev/sda1;/dev/sda2', 'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
+        staticConfig = TestConfiguration(self.backupConfig | {'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
         dynamicConfig = TestConfiguration({'dataConsistency|lastCheck': '2022-01-01 00:00:00'})
         messages = dataConsistency._performBtrfsCheck(staticConfig, dynamicConfig, TestChecking(), lambda: datetime(2022, 1, 1, 0, 5, 0), )
         self.assertTrue(len(messages) == 0, messages)
 
     def testCheckAfterIntervalPassed(self):
-        staticConfig = TestConfiguration({'dataConsistency|devices': '/dev/sda1;/dev/sda2', 'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
+        staticConfig = TestConfiguration(self.backupConfig | {'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
         dynamicConfig = TestConfiguration({'dataConsistency|lastCheck': '2022-01-01 00:00:00'})
         messages = dataConsistency._performBtrfsCheck(staticConfig, dynamicConfig, TestChecking(), lambda: datetime(2022, 1, 1, 1, 5, 0))
         self.assertIn('no error found', messages[0].message)
         self.assertEqual(Severity.INFO, messages[0].severity)
 
+    def testFilteringOfDuplicateFileSystems(self):
+        staticConfig = TestConfiguration({'backup|numberofvolumes': '2', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|subvolume': '/mnt/testdata/subvol0', 'backupVolume1|filesystem': '/mnt/testdata', 'backupVolume1|subvolume': '/mnt/testdata/subvol1' })
+        self.assertEqual(len(list(dataConsistencyConfigurationParser.getBackupVolumes(staticConfig))), 2)
+        self.assertEqual(len(list(dataConsistencyConfigurationParser.getBackupFileSystems(staticConfig))), 1)
+
 
 class DataConsistencyTest(unittest.TestCase):
     def testCheckAndScrub(self):
         staticConfig = TestConfiguration({
-            'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'dataConsistency|scrubInterval': '3600',
+            'backup|numberofvolumes': '1', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|subvolume': '/mnt/testdata/subvol', 'dataConsistency|scrubInterval': '3600',
             'dataConsistency|devices': '/dev/sda1', 'dataConsistency|checkInterval': '3600', 'dataConsistency|suspendCommand': ''})
         dynamicConfig = TestConfiguration({
             'dataConsistency|lastScrub': '2022-01-01 00:00:00',
             'dataConsistency|lastCheck': '2022-01-01 00:00:00'})
         
-        notifications = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, TestScrubbing('finished'), TestChecking(), lambda: datetime(2022, 1, 1, 1, 5, 0))
+        notifications = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, TestScrubbing('Status: finished'), TestChecking(), lambda: datetime(2022, 1, 1, 1, 5, 0))
 
         self.assertEqual(len(notifications), 2)
         self.assertEqual(notifications[0].severity, Severity.INFO)

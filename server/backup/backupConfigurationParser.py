@@ -2,7 +2,7 @@ from configuration import DynamicSection, StaticSection
 from backup.btrfsSnapshotting import BtrfsSnapshotting
 from backup.obsoleteSnapshotDetermination import ObsoleteSnapshotDetermination
 
-def getBackupVolumes(staticConfiguration, dynamicConfiguration):
+def getBackupVolumes(staticConfiguration, dynamicConfiguration, snapshottingFactory):
     numberOfVolumes = int(staticConfiguration.get('backup', 'numberofvolumes', 0))
 
     for i in range(numberOfVolumes):
@@ -39,7 +39,7 @@ def getBackupVolumes(staticConfiguration, dynamicConfiguration):
             errorMessage = f'Key daystokeep must be defined in Section {staticSection.sectionName}'
             raise Exception(errorMessage)
 
-        yield (BtrfsSnapshotting(fileSystem, subvolume, snapshotsDirectory),
+        yield (snapshottingFactory.getSnapshotting(fileSystem, subvolume, snapshotsDirectory),
                 ObsoleteSnapshotDetermination(yearsToKeep, monthsToKeep, daysToKeep),
                 dynamicSection)
 

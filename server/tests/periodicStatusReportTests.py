@@ -4,6 +4,7 @@ from tests.testConfiguration import TestConfiguration
 from datetime import datetime
 from datetime import datetime, timedelta
 import periodicStatusReport
+from notification.notification import Notification
 
 class ServerStatusTests(unittest.TestCase):
     def testStatusReport(self):
@@ -21,7 +22,7 @@ class ServerStatusTests(unittest.TestCase):
         staticConfig = TestConfiguration({})
         dynamicConfig = TestConfiguration(keyValuePairs)
 
-        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig)
+        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now)
 
         self.assertIsNone(report)
         self.assertEqual(dynamicConfig.get('periodicStatusReport', 'lastReport', None), timestampString)
@@ -36,9 +37,9 @@ class ServerStatusTests(unittest.TestCase):
         staticConfig = TestConfiguration({})
         dynamicConfig = TestConfiguration(keyValuePairs)
 
-        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig)
+        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now)
 
-        self.assertIs(type(report), str)
+        self.assertIs(type(report), Notification)
         newTimestamp = datetime.strptime(dynamicConfig.get('periodicStatusReport', 'lastReport', None), timeFormat)
 
         self.assertTrue((datetime.now() - newTimestamp).total_seconds() < 10)

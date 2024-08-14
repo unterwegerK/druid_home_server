@@ -10,14 +10,12 @@ from datetime import datetime
 
 INTERVAL = 2
 LONG_INTERVAL = 300
-INTERFACE = 'enp1s0'
 MINIMUM_SPEED = 15 #kB/s
-SAMPLES = 5
 MAX_SSH_SESSION_AGE = 21600 #6h in seconds
 
-def isSSHSessionActive():
+def isSSHSessionActive(getCurrentTime, getUserSessions):
     whoPattern = re.compile('(?P<userName>[^ ]+)\\s+(?P<session>[^ ]+)\\s+(?P<time>[^ ]+ [^ ]+)\\s+(?P<comment>.*)')
-    whoOutput = getoutput('who')
+    whoOutput = getUserSessions()
 
     activeSessionFound = False
 
@@ -32,7 +30,7 @@ def isSSHSessionActive():
             raise Exception(f'Could not parse output of who ("{whoLine}" as one line of "{whoOutput}")')
         
         sessionStart = dateutil.parser.parse(match.group('time'))
-        sessionAge = datetime.now() - sessionStart
+        sessionAge = getCurrentTime() - sessionStart
 
         logging.info(f'Found session {match.group("userName")} ({match.group("session")}) started at {sessionStart} (Comment: "{match.group("comment")}").')
         if sessionAge.seconds <= MAX_SSH_SESSION_AGE:
@@ -43,31 +41,22 @@ def isSSHSessionActive():
     return activeSessionFound
     
 
-def isNetworkActive():
-    accumulatedSpeed = 0
-    for sample in range(SAMPLES):
-        # Sum downstream and upstream and add with previous speed value
-        # {print $1} use just downstream
-        # {print $2} use just upstream
-        # {print $1+$2} use sum of downstream and upstream
-        speed = float(getoutput("ifstat -i %s 1 1 | awk '{print $1+$2}' | sed -n '3p'" % INTERFACE))
-        accumulatedSpeed += speed
-        logging.info(f'Sample {sample} for network traffic: {speed}kB/s')
-        time.sleep(INTERVAL)
-
-    # Calculate average speed from all retries
-    averageSpeed = accumulatedSpeed / float(SAMPLES)
+def isNetworkActive(networkInterface, getNetworkTraffic):
+    averageSpeed = getNetworkTraffic(networkInterface)
     logging.info(f'Average network traffic: {averageSpeed}kB/s')
                 
     # If average speed is below minimum speed - suspend
     return averageSpeed > MINIMUM_SPEED
 
-def shutdownOnInactivity(config):
+def shutdownOnInactivity(config, getCurrentTime, getUserSessions, getNetworkTraffic, shutdown):
             isEnabled = config.getboolean('shutdownOnInactivity', 'enabled', True)
+            networkInterface = config.get('shutdownOnInactivity', 'networkInterface', None)
+
+            if networkInterface is None:
+                 raise Exception('Key networkInterface must be defined in section shutdownOnInactivity.')
 
             #Check inactivity
-            if isEnabled and not isSSHSessionActive() and not isNetworkActive():
+            if isEnabled and not isSSHSessionActive(getCurrentTime, getUserSessions) and not isNetworkActive(networkInterface, getNetworkTraffic):
                 logging.info('Shutting down...')
-                os.system("sudo shutdown 0")
-                time.sleep(LONG_INTERVAL) 
+                shutdown()
 

@@ -20,7 +20,6 @@ class DynamicSection:
         self.configuration.set(self.sectionName, key, value)
 
 class DynamicConfiguration:
-
     def __init__(self, filePath):
         self.filePath = filePath
         self.configFile = None
@@ -83,7 +82,6 @@ class StaticSection:
         return self.configuration.getboolean(self.sectionName, key, fallback)
 
 class StaticConfiguration:
-
     def __init__(self, filePath):
             with open(filePath, 'r') as configFile:
                 self.configParser = ConfigParser()

@@ -5,9 +5,9 @@ import logging
 from periodicTaskConfiguration import PeriodicTaskConfiguration
 from dataConsistency import dataConsistencyConfigurationParser
 from configuration import StaticSection, DynamicSection
-from notification import Notification, Severity
+from notification.notification import Notification, Severity
     
-def _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime):
+def _scrubFileSystem(fileSystem, timeout, btrfsScrubbing, getCurrentTime):
     btrfsScrubbing.startScrubbing(fileSystem)
 
     startTime = getCurrentTime()
@@ -19,7 +19,7 @@ def _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime):
         status = btrfsScrubbing.parseScrubOutput(scrubOutput)
         
         if status == 'aborted':
-            errorMessage = f'Scrubbing was aborted with the following output:\n--------\n{scrubOutput}\n--------'
+            errorMessage = f'Scrubbing was aborted for file system {fileSystem} with the following output:\n--------\n{scrubOutput}\n--------'
             logging.error(errorMessage)
             return (Severity.ERROR, 'Scrub aborted', errorMessage)
 
@@ -51,10 +51,10 @@ def _performScrubbings(staticConfiguration, dynamicConfiguration, btrfsScrubbing
     with PeriodicTaskConfiguration(dynamicSection, LAST_SCRUB_KEY, interval, getCurrentTime) as periodicCheck:
         if periodicCheck.periodicTaskIsDue:
 
-            backupVolumes = dataConsistencyConfigurationParser.getBackupVolumes(staticConfiguration)
+            backupFileSystems = dataConsistencyConfigurationParser.getBackupFileSystems(staticConfiguration)
 
-            for fileSystem in backupVolumes:
-                (severity, header, message) = _scrubBackupVolume(fileSystem, timeout, btrfsScrubbing, getCurrentTime)
+            for backupFileSystem in backupFileSystems:
+                (severity, header, message) = _scrubFileSystem(backupFileSystem, timeout, btrfsScrubbing, getCurrentTime)
                 if not message is None:
                     messages.append(Notification(header, message, severity))
 
@@ -63,7 +63,11 @@ def _performScrubbings(staticConfiguration, dynamicConfiguration, btrfsScrubbing
 def _checkDevice(backupDevice, btrfsChecking):
     (exitcode, output) = btrfsChecking.checkDevice(backupDevice)
     btrfsChecking.containsErrors(output)
-    return Notification('Btrfs Check', output, Severity.ERROR if (exitcode != 0 or btrfsChecking.containsErrors(output)) else Severity.INFO)
+    header = 'Btrfs Check'
+    if (exitcode != 0 or btrfsChecking.containsErrors(output)):
+        return Notification(header, f'Btrfs check failed for device {backupDevice}:\n' + output, Severity.ERROR)
+    else:
+        return Notification(header, output, Severity.INFO)
 
 def _performBtrfsCheck(staticConfiguration, dynamicConfiguration, btrfsChecking, getCurrentTime):
     DEFAULT_INTERVAL = 31 * 24 * 60 * 60
@@ -83,17 +87,18 @@ def _performBtrfsCheck(staticConfiguration, dynamicConfiguration, btrfsChecking,
     with PeriodicTaskConfiguration(dynamicSection, LAST_CHECK_KEY, interval, getCurrentTime) as periodicCheck:
         if periodicCheck.periodicTaskIsDue:
             
-            backupDevices = dataConsistencyConfigurationParser.getBackupDevices(staticSection)
+            backupFileSystems = dataConsistencyConfigurationParser.getBackupFileSystems(staticConfiguration)
 
+            logging.info(f'Running suspend command {suspendCommand}')
             btrfsChecking.suspend(suspendCommand)
 
-            for backupDevice in backupDevices:
-                messages.append(_checkDevice(backupDevice, btrfsChecking))
+            for backupFileSystem in backupFileSystems:
+                messages.append(_checkDevice(backupFileSystem, btrfsChecking))
 
     return messages
    
 
-def verifyDataConsistency(staticConfiguration, dynamicConfiguration, btrfsScrubbing, btrfsChecking, getCurrentTime=datetime.now):
+def verifyDataConsistency(staticConfiguration, dynamicConfiguration, btrfsScrubbing, btrfsChecking, getCurrentTime):
     messages = []
 
     messages.extend(_performScrubbings(staticConfiguration, dynamicConfiguration, btrfsScrubbing, getCurrentTime))

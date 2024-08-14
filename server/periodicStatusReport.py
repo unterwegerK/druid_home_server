@@ -3,13 +3,12 @@ from datetime import datetime, MINYEAR
 from subprocess import getoutput
 from configuration import StaticSection, DynamicSection
 from periodicTaskConfiguration import PeriodicTaskConfiguration
-from notification import Notification, Severity
+from notification.notification import Notification, Severity
 
-def getServerStatus(staticConfig, dynamicConfig, getCurrentTime=datetime.now):
+def getServerStatus(staticConfig, dynamicConfig, getCurrentTime):
     staticSection = StaticSection(staticConfig, 'periodicStatusReport')
     dynamicSection = DynamicSection(dynamicConfig, 'periodicStatusReport')
     DEFAULT_INTERVAL = 24 * 60 * 60
-    FORMAT = '%Y-%m-%d %H:%M:%S'
     LAST_REPORT_KEY = 'lastReport'
 
     interval = staticSection.getint('interval', DEFAULT_INTERVAL)

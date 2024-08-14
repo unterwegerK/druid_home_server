@@ -1,24 +1,23 @@
 from periodicTaskConfiguration import PeriodicTaskConfiguration
 from backup import backupConfigurationParser
 from datetime import datetime
-from notification import Notification, Severity
+from notification.notification import Notification, Severity
 
-def updateSnapshots(staticConfiguration, dynamicConfiguration):
+def updateSnapshots(staticConfiguration, dynamicConfiguration, snapshottingFactory, currentTime):
 
-    backupVolumes = backupConfigurationParser.getBackupVolumes(staticConfiguration, dynamicConfiguration)
+    backupVolumes = backupConfigurationParser.getBackupVolumes(staticConfiguration, dynamicConfiguration, snapshottingFactory)
 
     notifications = []
     for backupVolume in backupVolumes:
-        with PeriodicTaskConfiguration(backupVolume[2], 'lastBackup', 24 * 60 * 60) as periodicBackup:
+        with PeriodicTaskConfiguration(backupVolume[2], 'lastBackup', 24 * 60 * 60, currentTime) as periodicBackup:
             if periodicBackup.periodicTaskIsDue:
                 fileSystem = backupVolume[0]
                 obsoleteSnapshotsDetermination = backupVolume[1]
 
-                currentTime = datetime.now()
-
                 createMessage = fileSystem.createSubvolumeSnapshot(currentTime)
 
-                obsoleteSnapshots = obsoleteSnapshotsDetermination.getObsoleteSnapshots(fileSystem.getSubvolumeSnapshots(), currentTime)
+                obsoleteSnapshots = list(obsoleteSnapshotsDetermination.getObsoleteSnapshots(fileSystem.getSubvolumeSnapshots(), currentTime()))
+
                 deleteMessages = fileSystem.deleteSubvolumeSnapshots(obsoleteSnapshots)
                 notifications.append(Notification('Snapshot Update', f'The following snapshot changes have been made:\n{createMessage}\n{deleteMessages}', Severity.INFO))
             

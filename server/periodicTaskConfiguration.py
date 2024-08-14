@@ -4,7 +4,7 @@ from datetime import datetime
 class PeriodicTaskConfiguration:
     FORMAT = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, section, lastTimestampKey, interval, getCurrentTime = datetime.now):
+    def __init__(self, section, lastTimestampKey, interval, getCurrentTime):
         self.section = section
         self.lastTimestampKey = lastTimestampKey
         self.now = getCurrentTime()
