@@ -16,7 +16,7 @@ class BtrfsSnapshottingTests(unittest.TestCase):
     def testCreateSnapshotsSuccessfully(self):
         spy = RunProcessSpy()
         testee = BtrfsSnapshotting('/media/testdata', '/media/testdata/data', '/media/testdata/snapshots', spy.runProcess)
-        result = testee.createSubvolumeSnapshot(datetime(2020, 10, 1, 15, 34, 26))
+        result = testee.createSubvolumeSnapshot(lambda: datetime(2020, 10, 1, 15, 34, 26))
         self.assertEqual(result, 'Output')
         self.assertEqual(str(spy.command), 'btrfs subvolume snapshot /media/testdata/data /media/testdata/snapshots/2020-10-01_15:34:26')
 
@@ -24,7 +24,7 @@ class BtrfsSnapshottingTests(unittest.TestCase):
         logging.disable('ERROR')
         spy = RunProcessSpy(1, 'Output')
         testee = BtrfsSnapshotting('/media/testdata', '/media/testdata/data', '/media/testdata/snapshots', spy.runProcess)
-        result = testee.createSubvolumeSnapshot(datetime(2020,10,1, 15, 34, 26))
+        result = testee.createSubvolumeSnapshot(lambda: datetime(2020,10,1, 15, 34, 26))
         self.assertTrue('Error' in result)
         self.assertTrue('Output' in result)
     

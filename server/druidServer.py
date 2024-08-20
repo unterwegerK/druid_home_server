@@ -19,28 +19,31 @@ import notification.emailNotification as emailNotification
 from notification.emailSender import EMailSender
 import shutdown
 
-ITERATION_INTERVAL = 3
+ITERATION_INTERVAL = 60
 
 class Factory:
-    def getFilesystemScrubbing():
+    def getFilesystemScrubbing(self):
         return BtrfsScrubbing()
     
-    def getFilesystemChecking():
+    def getFilesystemChecking(self):
         return BtrfsChecking()
     
-    def getCurrentTimeFunctor():
+    def getCurrentTimeFunctor(self):
         return datetime.now
     
-    def getPackageUpdater():
+    def getPackageUpdater(self):
         return lambda: getstatusoutput('apt-get update && apt-get upgrade -y')
                                
     def getSnapshotting(self, fileSystem, subvolume, snapshotsDirectory):
         return BtrfsSnapshotting(fileSystem, subvolume, snapshotsDirectory)
     
+    def getFileSystemUsageFunctor(self):
+        return lambda device: getoutput(f'btrfs filesystem usage {device} | head -n10 | grep "Free\|Used"')
+    
     def getEMailSender(self):
         return EMailSender()
     
-    def getUserSessionFunctor(self):
+    def getUserSessionsFunctor(self):
         return lambda: getoutput('who')
     
     def getNetworkTrafficFunctor(self):
@@ -58,7 +61,7 @@ class Factory:
                 time.sleep(2)
 
             # Calculate average speed from all retries
-            averageSpeed = accumulatedSpeed / float(SAMPLES)
+            return accumulatedSpeed / float(SAMPLES)
         return _getAveragedNetworkTraffic
     
     def getShutdownFunctor(self):
@@ -84,7 +87,7 @@ def performUpdates(staticConfig, dynamicConfig, factory):
     notifications.extend(consistencyReport)
 
     logging.info('Assembling status report')
-    statusReport = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, factory.getCurrentTimeFunctor())
+    statusReport = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, factory.getCurrentTimeFunctor(), factory.getFileSystemUsageFunctor())
     if statusReport is not None: notifications.append(statusReport)
 
     if len(notifications) > 0:
@@ -98,6 +101,15 @@ def performUpdates(staticConfig, dynamicConfig, factory):
         factory.getUserSessionsFunctor(), 
         factory.getNetworkTrafficFunctor(),
         factory.getShutdownFunctor())
+
+def getLogLevel(logLevelName):
+    match logLevelName.lower():
+        case 'info':
+            return logging.INFO
+        case 'error':
+            return logging.ERROR
+        case _:
+            return logging.ERROR
 
 
 if __name__ == '__main__':
@@ -114,7 +126,7 @@ if __name__ == '__main__':
     logFilePath = staticConfig.get('logging', 'logFilePath', f'/var/log/{scriptName}.log')
     logLevel = staticConfig.get('logging', 'level', 'INFO')
 
-    logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=logging.INFO[logLevel], handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
+    logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=getLogLevel(logLevel), handlers=[logging.FileHandler(logFilePath), logging.StreamHandler(sys.stdout)])
 
     logging.info('===========')
     logging.info('Starting...')
