@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<druid>
+    <host>hostname.x.y</host>
+    <macAddress></macAddress>
+    <broadcastAddress></broadcastAddress>
+</druid>
