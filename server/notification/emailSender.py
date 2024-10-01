@@ -1,7 +1,7 @@
 import smtplib
 
 class EMailSender:
-    def sendEMail(smtpServerAddress, user, password, destination, subject, message):
+    def sendEMail(self, smtpServerAddress, user, password, destination, subject, message):
         with smtplib.SMTP(smtpServerAddress, 587) as smtpServer:
             smtpServer.ehlo()
             smtpServer.starttls()

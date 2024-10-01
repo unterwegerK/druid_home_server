@@ -25,3 +25,7 @@ def getBackupFileSystems(staticConfiguration):
     backupVolumes = list(getBackupVolumes(staticConfiguration))
     return set([v[0] for v in backupVolumes])
 
+def getBackupDevices(staticConfiguration):
+    return staticConfiguration.get('dataConsistency', 'backupDevices', '').split(';')
+
+

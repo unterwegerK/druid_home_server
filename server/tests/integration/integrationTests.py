@@ -11,7 +11,7 @@ from tests.integration.stringBasedStaticConfiguration import StringBasedStaticCo
 # - For fs0 one snapshot is removed due to daystokeep
 # - For fs1 three snapshots are removed. One each due to daystokeep, monthstokeep, and yearstokeep
 # - Scrubbing fails on fs0
-# - Check fails on fs1
+# - Check fails on one of the devices
 # - Package update fails
 
 class IntegrationTests(unittest.TestCase):
@@ -37,6 +37,7 @@ class IntegrationTests(unittest.TestCase):
     daystokeep=12
 
     [dataConsistency]
+    backupDevices=/dev/sda1;/dev/sda2;/dev/sdb1;/dev/sdc
     suspendCommand=suspend.sh
 
     [emailNotification]
@@ -90,8 +91,10 @@ class IntegrationTests(unittest.TestCase):
                                      Error summary:    no errors found"""
                 },
             checkOutputs={
-                '/mnt/fs0': 'found 567890 bytes used, no error found',
-                '/mnt/fs1': 'error found'
+                '/dev/sda1': 'found 567890 bytes used, no error found',
+                '/dev/sda2': 'found 739472 bytes used, no error found',
+                '/dev/sdb1': 'error found',
+                '/dev/sdc': 'found 3459889 bytes used, no error found',
                 },
             existingSnapshots={
                 '/mnt/fs0/data': [('/mnt/fs0/snapshots/2020-12-30 01:00:00', datetime(2020, 12, 30, 1, 0, 0)), 
@@ -136,5 +139,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertNotIn('Scrubbing was aborted for file system /mnt/fs1 with the following output', eMailContent)
 
         #Check fails on Fs1
-        self.assertNotIn('Btrfs check failed for device /mnt/fs0', eMailContent)
-        self.assertIn('Btrfs check failed for device /mnt/fs1', eMailContent)
+        self.assertNotIn('Btrfs check failed for device /dev/sda1', eMailContent)
+        self.assertNotIn('Btrfs check failed for device /dev/sda2', eMailContent)
+        self.assertIn('Btrfs check failed for device /dev/sdb1', eMailContent)
+        self.assertNotIn('Btrfs check failed for device /dev/sdc', eMailContent)

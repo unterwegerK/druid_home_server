@@ -187,6 +187,11 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(len(list(dataConsistencyConfigurationParser.getBackupVolumes(staticConfig))), 2)
         self.assertEqual(len(list(dataConsistencyConfigurationParser.getBackupFileSystems(staticConfig))), 1)
 
+    def testParsingOfBackupDevices(self):
+        #staticConfig = TestConfiguration({'backup|numberofvolumes': '2', 'backupVolume0|filesystem': '/mnt/testdata', 'backupVolume0|subvolume': '/mnt/testdata/subvol0', 'backupVolume1|filesystem': '/mnt/testdata', 'backupVolume1|subvolume': '/mnt/testdata/subvol1' })
+        staticConfig = TestConfiguration({'dataConsistency|backupDevices': '/dev/sda;/dev/sdb'})
+        self.assertEqual(dataConsistencyConfigurationParser.getBackupDevices(staticConfig), ['/dev/sda', '/dev/sdb'])
+
 
 class DataConsistencyTest(unittest.TestCase):
     def testCheckAndScrub(self):

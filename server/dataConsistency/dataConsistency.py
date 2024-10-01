@@ -87,13 +87,13 @@ def _performBtrfsCheck(staticConfiguration, dynamicConfiguration, btrfsChecking,
     with PeriodicTaskConfiguration(dynamicSection, LAST_CHECK_KEY, interval, getCurrentTime) as periodicCheck:
         if periodicCheck.periodicTaskIsDue:
             
-            backupFileSystems = dataConsistencyConfigurationParser.getBackupFileSystems(staticConfiguration)
+            backupDevices = dataConsistencyConfigurationParser.getBackupDevices(staticConfiguration)
 
             logging.info(f'Running suspend command {suspendCommand}')
             btrfsChecking.suspend(suspendCommand)
 
-            for backupFileSystem in backupFileSystems:
-                messages.append(_checkDevice(backupFileSystem, btrfsChecking))
+            for backupDevice in backupDevices:
+                messages.append(_checkDevice(backupDevice, btrfsChecking))
 
     return messages
    

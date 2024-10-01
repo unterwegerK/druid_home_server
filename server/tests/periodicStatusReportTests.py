@@ -10,7 +10,7 @@ class ServerStatusTests(unittest.TestCase):
     def testStatusReport(self):
        staticConfig = TestConfiguration({})
        dynamicConfig = TestConfiguration({})
-       report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, lambda: datetime(2022, 2, 18, 8, 57, 0))
+       report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, lambda: datetime(2022, 2, 18, 8, 57, 0), lambda device: "")
        self.assertIsNotNone(report)
 
     def testNoLoggingIfIntervalNotYetOver(self):
@@ -22,7 +22,7 @@ class ServerStatusTests(unittest.TestCase):
         staticConfig = TestConfiguration({})
         dynamicConfig = TestConfiguration(keyValuePairs)
 
-        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now)
+        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now, lambda device: "")
 
         self.assertIsNone(report)
         self.assertEqual(dynamicConfig.get('periodicStatusReport', 'lastReport', None), timestampString)
@@ -37,7 +37,7 @@ class ServerStatusTests(unittest.TestCase):
         staticConfig = TestConfiguration({})
         dynamicConfig = TestConfiguration(keyValuePairs)
 
-        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now)
+        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now, lambda device: "")
 
         self.assertIs(type(report), Notification)
         newTimestamp = datetime.strptime(dynamicConfig.get('periodicStatusReport', 'lastReport', None), timeFormat)

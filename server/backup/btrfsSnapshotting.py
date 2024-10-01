@@ -28,7 +28,7 @@ class BtrfsSnapshotting:
                 logging.error(f'Could not parse subvolume line {line}')
     
     def createSubvolumeSnapshot(self, currentTime):
-        timestamp = currentTime.strftime(self.FORMAT)
+        timestamp = currentTime().strftime(self.FORMAT)
         snapshotsDirectory = Path(self.snapshotsDirectory) / timestamp
         (exitcode, output) = self.runProcess(f'btrfs subvolume snapshot {self.subvolume} {snapshotsDirectory}')
 
