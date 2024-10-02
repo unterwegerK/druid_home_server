@@ -33,7 +33,7 @@ Get-ChildItem $configurationSourceDirectory | ForEach-Object {
 }
 
 #Install scheduler task to check and start druid home server
-$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle hidden -File `"$installDirectory\checkDruidServer.ps1`" `"$configurationInstallationDirectory\config.xml`" `"$configurationInstallationDirectory\settings.xml`" `"$env:AppData\DruidHomeServerClient\log.txt`" "
+$action = New-ScheduledTaskAction -Execute "conhost.exe" -Argument "--hidden powershell.exe -WindowStyle hidden -File `"$installDirectory\checkDruidServer.ps1`" `"$configurationInstallationDirectory\config.xml`" `"$configurationInstallationDirectory\settings.xml`" `"$env:AppData\DruidHomeServerClient\log.txt`" "
 $trigger = New-ScheduledTaskTrigger -Once -At "10pm" -RepetitionInterval (New-TimeSpan -Minutes 10)
 $settings = New-ScheduledTaskSettingsSet -RunOnlyIfNetworkAvailable
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal (New-ScheduledTaskPrincipal -UserId "$ENV:USERDOMAIN\$ENV:USERNAME")
