@@ -19,7 +19,7 @@ import notification.emailNotification as emailNotification
 from notification.emailSender import EMailSender
 import shutdown
 
-ITERATION_INTERVAL = 60
+ITERATION_INTERVAL = 300
 
 class Factory:
     def getFilesystemScrubbing(self):
@@ -38,7 +38,7 @@ class Factory:
         return BtrfsSnapshotting(fileSystem, subvolume, snapshotsDirectory)
     
     def getFileSystemUsageFunctor(self):
-        return lambda device: getoutput(f'btrfs filesystem usage {device} | head -n10 | grep "Free\|Used"')
+        return lambda device: getstatusoutput(f'btrfs filesystem usage {device} | head -n10 | grep "Free\|Used"')
     
     def getEMailSender(self):
         return EMailSender()
@@ -81,14 +81,15 @@ def performUpdates(staticConfig, dynamicConfig, factory):
     logging.info('Updating system')
     updateReport = packageSystem.updatePackages(staticConfig, dynamicConfig, factory.getPackageUpdater(), currentTimeFunctor)
     if updateReport is not None: notifications.append(updateReport)
-    
-    logging.info('Checking consistency')
-    consistencyReport = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, factory.getFilesystemScrubbing(), factory.getFilesystemChecking(), currentTimeFunctor)
-    notifications.extend(consistencyReport)
 
     logging.info('Assembling status report')
     statusReport = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, factory.getCurrentTimeFunctor(), factory.getFileSystemUsageFunctor())
     if statusReport is not None: notifications.append(statusReport)
+    
+    #Perform checking last as it may unmount
+    logging.info('Checking consistency')
+    consistencyReport = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, factory.getFilesystemScrubbing(), factory.getFilesystemChecking(), currentTimeFunctor)
+    notifications.extend(consistencyReport)
 
     if len(notifications) > 0:
         logging.info(f'Sending {len(notifications)} notifications via e-mail.')

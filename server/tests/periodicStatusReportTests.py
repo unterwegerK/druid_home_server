@@ -4,42 +4,51 @@ from tests.testConfiguration import TestConfiguration
 from datetime import datetime
 from datetime import datetime, timedelta
 import periodicStatusReport
-from notification.notification import Notification
+from notification.notification import Notification, Severity
 
 class ServerStatusTests(unittest.TestCase):
-    def testStatusReport(self):
-       staticConfig = TestConfiguration({})
-       dynamicConfig = TestConfiguration({})
-       report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, lambda: datetime(2022, 2, 18, 8, 57, 0), lambda device: "")
-       self.assertIsNotNone(report)
+    format = '%Y-%m-%d %H:%M:%S'
+
+    def _getConfigs(self, hoursSinceLastReport):
+        staticKeyValuePairs = {}
+        staticKeyValuePairs['backup|numberofvolumes'] = 1
+        staticKeyValuePairs['backupVolume0|filesystem'] = '/mnt/fs1'
+        staticKeyValuePairs['backupVolume0|subvolume'] = 'mnt/fs1/subvol0'
+
+        dynamicKeyValuePairs = {}
+        timestamp = datetime.now() - timedelta(hours=hoursSinceLastReport)
+        timestampString = timestamp.strftime(self.format)
+        dynamicKeyValuePairs['periodicStatusReport|lastReport'] = timestampString
+
+        staticConfig = TestConfiguration(staticKeyValuePairs)
+        dynamicConfig = TestConfiguration(dynamicKeyValuePairs)
+
+        return (staticConfig, dynamicConfig)
 
     def testNoLoggingIfIntervalNotYetOver(self):
-        keyValuePairs = {}
-        timestamp = datetime.now() - timedelta(hours=23)
-        timestampString = timestamp.strftime('%Y-%m-%d %H:%M:%S')
-        keyValuePairs['periodicStatusReport|lastReport'] = timestampString
-        
-        staticConfig = TestConfiguration({})
-        dynamicConfig = TestConfiguration(keyValuePairs)
+        (staticConfig, dynamicConfig) = self._getConfigs(23)
 
-        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now, lambda device: "")
+        timestamp = dynamicConfig.get('periodicStatusReport', 'lastReport', None)
+
+        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now, lambda device: (0, ""))
 
         self.assertIsNone(report)
-        self.assertEqual(dynamicConfig.get('periodicStatusReport', 'lastReport', None), timestampString)
+        self.assertEqual(dynamicConfig.get('periodicStatusReport', 'lastReport', None), timestamp)
 
     def testLoggingIfIntervalIsOver(self):
-        timeFormat = '%Y-%m-%d %H:%M:%S'
-        keyValuePairs = {}
-        timestamp = datetime.now() - timedelta(hours=25)
-        timestampString = timestamp.strftime(timeFormat)
-        keyValuePairs['periodicStatusReport|lastReport'] = timestampString
-        
-        staticConfig = TestConfiguration({})
-        dynamicConfig = TestConfiguration(keyValuePairs)
+        (staticConfig, dynamicConfig) = self._getConfigs(25)
 
-        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now, lambda device: "")
+        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now, lambda device: (0, ""))
 
         self.assertIs(type(report), Notification)
-        newTimestamp = datetime.strptime(dynamicConfig.get('periodicStatusReport', 'lastReport', None), timeFormat)
+        self.assertEqual(report.severity, Severity.INFO)
+        newTimestamp = datetime.strptime(dynamicConfig.get('periodicStatusReport', 'lastReport', None), self.format)
 
         self.assertTrue((datetime.now() - newTimestamp).total_seconds() < 10)
+
+    def testErrorNotificationOnErrorDuringUsageRetrieval(self):
+        (staticConfig, dynamicConfig) = self._getConfigs(25)
+
+        report = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, datetime.now, lambda device: (1, "Unknown error"))
+
+        self.assertEqual(report.severity, Severity.ERROR)

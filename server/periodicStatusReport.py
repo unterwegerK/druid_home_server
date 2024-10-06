@@ -23,13 +23,16 @@ def getServerStatus(staticConfig, dynamicConfig, getCurrentTime, getFileSystemUs
             backupFileSystem = dataConsistencyConfigurationParser.getBackupFileSystems(staticConfig)
 
             entries = []
+            severity = Severity.INFO
             for backupFileSystem in backupFileSystem:
                 availableSpaceHeader = f'The following disk space is available for {backupFileSystem}:'
-                availableSpace = getFileSystemUsage(backupFileSystem)
+                (status, availableSpace) = getFileSystemUsage(backupFileSystem)
                 entries.append(f'{availableSpaceHeader}\n{availableSpace}')
+                if status != 0:
+                    severity = Severity.ERROR
             availableSpaceEntries = '\n\n'.join(entries)
 
-            return Notification('Status Report', f'{rebootHeader}\n{reboots}\n\n{availableSpaceEntries}', Severity.INFO)
+            return Notification('Status Report', f'{rebootHeader}\n{reboots}\n\n{availableSpaceEntries}', severity)
         else:
             return None
 

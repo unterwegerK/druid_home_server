@@ -26,7 +26,7 @@ class IntegrationTestFactory:
         return TestSnapshotting(fileSystem, subvolume, snapshotsDirectory, self.existingSnapshots.get(subvolume) or [])
     
     def getFileSystemUsageFunctor(self):
-        return lambda device: ""
+        return lambda device: (0, "")
     
     def getEMailSender(self):
         return self.eMailSender
