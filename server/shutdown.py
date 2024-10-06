@@ -3,7 +3,6 @@
 
 import configparser, os, time, sys
 import logging
-from subprocess import getoutput
 import re
 import dateutil.parser
 from datetime import datetime
@@ -15,9 +14,13 @@ MAX_SSH_SESSION_AGE = 21600 #6h in seconds
 
 def isSSHSessionActive(getCurrentTime, getUserSessions):
     whoPattern = re.compile('(?P<userName>[^ ]+)\\s+(?P<session>[^ ]+)\\s+(?P<time>[^ ]+ [^ ]+)\\s+(?P<comment>.*)')
-    whoOutput = getUserSessions()
+    (whoStatus, whoOutput) = getUserSessions()
 
     activeSessionFound = False
+
+    if whoStatus != 0:
+         logging.error('Error while retrieving user sesions via "who".')
+         return False
 
     if whoOutput == "":
         logging.info('No SSH sessions found.')

@@ -1,4 +1,3 @@
-from subprocess import getoutput
 import subprocess
 import re
 import os

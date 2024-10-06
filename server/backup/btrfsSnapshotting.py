@@ -1,4 +1,4 @@
-from subprocess import getstatusoutput, getoutput
+from subprocess import getstatusoutput
 from pathlib import Path
 from datetime import datetime
 import logging

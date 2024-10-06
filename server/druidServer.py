@@ -28,7 +28,7 @@ class Factory:
     def getFilesystemChecking(self):
         return BtrfsChecking()
     
-    def getCurrentTimeFunctor(self):
+    def getCurrentTimeCallable(self):
         return datetime.now
     
     def getPackageUpdater(self):
@@ -37,16 +37,16 @@ class Factory:
     def getSnapshotting(self, fileSystem, subvolume, snapshotsDirectory):
         return BtrfsSnapshotting(fileSystem, subvolume, snapshotsDirectory)
     
-    def getFileSystemUsageFunctor(self):
+    def getFileSystemUsageCallable(self):
         return lambda device: getstatusoutput(f'btrfs filesystem usage {device} | head -n10 | grep "Free\|Used"')
     
     def getEMailSender(self):
         return EMailSender()
     
-    def getUserSessionsFunctor(self):
-        return lambda: getoutput('who')
+    def getUserSessionsCallable(self):
+        return lambda: getstatusoutput('who')
     
-    def getNetworkTrafficFunctor(self):
+    def getNetworkTrafficCallable(self):
         def _getAveragedNetworkTraffic(interface):    
             SAMPLES = 5
             accumulatedSpeed = 0
@@ -64,7 +64,7 @@ class Factory:
             return accumulatedSpeed / float(SAMPLES)
         return _getAveragedNetworkTraffic
     
-    def getShutdownFunctor(self):
+    def getShutdownCallable(self):
         def _shutdown():
             os.system("sudo shutdown 0")
             time.sleep(60) 
@@ -72,23 +72,23 @@ class Factory:
 
 def performUpdates(staticConfig, dynamicConfig, factory):
     notifications = []
-    currentTimeFunctor = factory.getCurrentTimeFunctor()
+    currentTimeCallable = factory.getCurrentTimeCallable()
 
     logging.info('Updating snapshots')
-    backupReport = backup.updateSnapshots(staticConfig, dynamicConfig, factory, currentTimeFunctor)
+    backupReport = backup.updateSnapshots(staticConfig, dynamicConfig, factory, currentTimeCallable)
     notifications.extend(backupReport)
 
     logging.info('Updating system')
-    updateReport = packageSystem.updatePackages(staticConfig, dynamicConfig, factory.getPackageUpdater(), currentTimeFunctor)
+    updateReport = packageSystem.updatePackages(staticConfig, dynamicConfig, factory.getPackageUpdater(), currentTimeCallable)
     if updateReport is not None: notifications.append(updateReport)
 
     logging.info('Assembling status report')
-    statusReport = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, factory.getCurrentTimeFunctor(), factory.getFileSystemUsageFunctor())
+    statusReport = periodicStatusReport.getServerStatus(staticConfig, dynamicConfig, factory.getCurrentTimeCallable(), factory.getFileSystemUsageCallable())
     if statusReport is not None: notifications.append(statusReport)
     
     #Perform checking last as it may unmount
     logging.info('Checking consistency')
-    consistencyReport = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, factory.getFilesystemScrubbing(), factory.getFilesystemChecking(), currentTimeFunctor)
+    consistencyReport = dataConsistency.verifyDataConsistency(staticConfig, dynamicConfig, factory.getFilesystemScrubbing(), factory.getFilesystemChecking(), currentTimeCallable)
     notifications.extend(consistencyReport)
 
     if len(notifications) > 0:
@@ -98,10 +98,10 @@ def performUpdates(staticConfig, dynamicConfig, factory):
     logging.info('Checking for shutdown')
     shutdown.shutdownOnInactivity(
         staticConfig, 
-        factory.getCurrentTimeFunctor(), 
-        factory.getUserSessionsFunctor(), 
-        factory.getNetworkTrafficFunctor(),
-        factory.getShutdownFunctor())
+        factory.getCurrentTimeCallable(), 
+        factory.getUserSessionsCallable(), 
+        factory.getNetworkTrafficCallable(),
+        factory.getShutdownCallable())
 
 def getLogLevel(logLevelName):
     match logLevelName.lower():
