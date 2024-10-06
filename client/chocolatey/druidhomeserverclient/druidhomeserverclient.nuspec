@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>druidhomeserverclient</id>
+	<version>1.0.0</version>
+    <packageSourceUrl>https://github.com/unterwegerK/druid_home_server</packageSourceUrl>
+    <owners>Kristof Unterweger</owners>
+    <title>Druid Home Server</title>
+    <authors>Kristof Unterweger</authors>
+    <projectUrl>https://github.com/unterwegerK/druid_home_server</projectUrl>
+    <licenseUrl>https://opensource.org/license/mit</licenseUrl>
+    <projectSourceUrl>https://github.com/unterwegerK/druid_home_server</projectSourceUrl>
+    <docsUrl>https://github.com/unterwegerK/druid_home_server/blob/main/README.md</docsUrl>
+    <tags></tags>
+    <summary></summary>
+    <description>Client side for the Druid Home Server. Allows automatic start by wake-on-lan.</description>
+    <dependencies>
+      <dependency id="wakeonlan" version="0.3.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+	  <file src="..\..\src\**" target="tools\druidhomeserverclient" />
+  </files>
+</package>

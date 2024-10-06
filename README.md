@@ -15,3 +15,9 @@ Required Python packages:
 
 Required Ubuntu packages:
 - ifstat
+
+## Client-side
+Installation:
+- Install chocolatey package druidhomeserver
+  - If required, add local source: choco source add -n "Druid Server Source" -s <Path to druid_home_server/packages>
+  - Run choco install druidhomeserverclient
