@@ -18,8 +18,8 @@ def updateSnapshots(staticConfiguration, dynamicConfiguration, snapshottingFacto
 
                 obsoleteSnapshots = list(obsoleteSnapshotsDetermination.getObsoleteSnapshots(fileSystem.getSubvolumeSnapshots(), currentTime()))
 
-                deleteMessages = fileSystem.deleteSubvolumeSnapshots(obsoleteSnapshots)
-                notifications.append(Notification('Snapshot Update', f'The following snapshot changes have been made:\n{createMessage}\n{deleteMessages}', Severity.INFO))
+                (errorOccurred, deleteMessages) = fileSystem.deleteSubvolumeSnapshots(obsoleteSnapshots)
+                notifications.append(Notification('Snapshot Update', f'The following snapshot changes have been made:\n{createMessage}\n{deleteMessages}', Severity.ERROR if errorOccurred else Severity.INFO))
             
     return notifications
 

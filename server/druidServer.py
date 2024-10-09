@@ -38,7 +38,7 @@ class Factory:
         return BtrfsSnapshotting(fileSystem, subvolume, snapshotsDirectory)
     
     def getFileSystemUsageCallable(self):
-        return lambda device: getstatusoutput(f'btrfs filesystem usage {device} | head -n10 | grep "Free\|Used"')
+        return lambda device: getstatusoutput(f'btrfs filesystem usage {device} | head -n10 | grep "Free\\|Used"')
     
     def getEMailSender(self):
         return EMailSender()

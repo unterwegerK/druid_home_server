@@ -53,7 +53,7 @@ class TestSnapshotting:
         return f'Created snapshot {self.snapshotsDirectory}/{currentTime().strftime(self.FORMAT)}'
     
     def deleteSubvolumeSnapshots(self, obsoleteSnapshots):
-        return "\n".join(f"Deleted snapshot {s[0]}" for s in obsoleteSnapshots)
+        return (False, "\n".join(f"Deleted snapshot {s[0]}" for s in obsoleteSnapshots))
     
 class TestSender:
     def __init__(self):

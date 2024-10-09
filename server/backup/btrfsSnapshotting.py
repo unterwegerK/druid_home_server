@@ -43,12 +43,14 @@ class BtrfsSnapshotting:
         return self.runProcess(f'btrfs subvolume delete {snapshotDirectory}')
     
     def deleteSubvolumeSnapshots(self, obsoleteSnapshots):
+        errorOccurred = False
         messages = []
         for obsoleteSnapshot in obsoleteSnapshots:
             snapshotMessage = f'Deleting snapshot {obsoleteSnapshot[0]}'
             logging.info(snapshotMessage)
             messages.append(snapshotMessage)
-            self._deleteSubvolumeSnapshot(obsoleteSnapshot[0])
+            (status, output) = self._deleteSubvolumeSnapshot(obsoleteSnapshot[0])
+            errorOccurred |= (status != 0)
 
-        return '\n'.join(messages)
+        return (errorOccurred, '\n'.join(messages))
 
